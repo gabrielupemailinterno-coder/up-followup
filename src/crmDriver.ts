@@ -9,7 +9,7 @@
  */
 
 import type { CrmJob } from './types'
-import { formatPhoneForCrm, samePhone } from './crm'
+import { CRM_PAGE_SIZE, formatPhoneForCrm, phoneSearchQueries, samePhone } from './crm'
 
 export interface LeadHit {
   id: string
@@ -21,7 +21,8 @@ export interface CrmPageAdapter {
   path(): string
   /** Navegação completa; o script é reiniciado na página seguinte e o job continua. */
   goto(path: string): void
-  searchLeadsByPhone(crmPhone: string): Promise<LeadHit[]>
+  /** Digita `query` na busca do CRM e devolve os leads listados (até uma página). */
+  searchLeadsByPhone(query: string): Promise<LeadHit[]>
   openLeadCard(leadId: string, leadName: string): Promise<boolean>
   readModalPhones(): string[]
   openActivityForm(): Promise<boolean>
@@ -47,14 +48,26 @@ export async function runJobStep(job: CrmJob, page: CrmPageAdapter): Promise<Ste
       page.goto('/leads')
       return { kind: 'navigating' }
     }
-    const crmPhone = formatPhoneForCrm(job.phone)
-    if (!crmPhone) return fail('Telefone fora do formato brasileiro: não dá para buscar no CRM.')
+    const queries = phoneSearchQueries(job.phone)
+    if (queries.length === 0) return fail('Telefone fora do formato brasileiro: não dá para buscar no CRM.')
+    const shown = formatPhoneForCrm(job.phone) ?? job.phone
 
-    const hits = await page.searchLeadsByPhone(crmPhone)
-    const matching = hits.filter(h => h.phones.some(p => samePhone(p, job.phone)))
-    if (matching.length === 0) return fail(`Lead não encontrado no CRM com o telefone ${crmPhone}.`)
+    // Busca pelos 4 últimos dígitos (tolerante ao formato) e CONFERE o telefone completo nos resultados.
+    // Só considera o resultado confiável se a lista não vier truncada (página cheia).
+    let matching: LeadHit[] = []
+    let reliable = false
+    for (const q of queries) {
+      const hits = await page.searchLeadsByPhone(q)
+      matching = hits.filter(h => h.phones.some(p => samePhone(p, job.phone)))
+      reliable = hits.length < CRM_PAGE_SIZE
+      if (reliable) break
+    }
+    if (matching.length === 0) return fail(`Lead não encontrado no CRM com o telefone ${shown}.`)
     if (matching.length > 1) {
-      return { kind: 'finished', status: 'skipped', message: `Há ${matching.length} leads com o telefone ${crmPhone}. Registre manualmente para não errar o lead.` }
+      return { kind: 'finished', status: 'skipped', message: `Há ${matching.length} leads com o telefone ${shown}. Registre manualmente para não errar o lead.` }
+    }
+    if (!reliable) {
+      return { kind: 'finished', status: 'skipped', message: `A busca do CRM por ${shown} devolveu muitos resultados e não dá para garantir que o lead é único. Registre manualmente.` }
     }
     page.goto('/funil')
     return { kind: 'navigating', patch: { leadId: matching[0].id, leadName: matching[0].name } }

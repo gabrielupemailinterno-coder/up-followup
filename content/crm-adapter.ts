@@ -195,12 +195,12 @@ export function createCrmAdapter(): CrmPageAdapter {
       location.assign(path)
     },
 
-    async searchLeadsByPhone(crmPhone) {
+    async searchLeadsByPhone(query) {
       const input = await waitFor(() => document.querySelector<HTMLInputElement>(SEL.leadsSearch), 10_000)
       if (!input) return []
       const sig = (arr: AnyObj[] | null) => (arr ?? []).map(l => l.id).join(',')
       const before = sig(readLeadsArray())
-      setInputValue(input, crmPhone)
+      setInputValue(input, query)
       // espera a lista mudar em relação à anterior (evita ler resultado velho)
       await waitFor(() => (sig(readLeadsArray()) !== before ? true : null), 7000, 250)
       await sleep(600)

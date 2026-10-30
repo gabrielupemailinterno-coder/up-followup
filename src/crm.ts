@@ -15,6 +15,23 @@ export function formatPhoneForCrm(phone: string): string | null {
   return `(${ddd}) ${rest.slice(0, cut)}-${rest.slice(cut)}`
 }
 
+/** Tamanho de uma página de resultados do CRM: página cheia = lista possivelmente incompleta. */
+export const CRM_PAGE_SIZE = 50
+
+/**
+ * Consultas para achar um telefone na busca do CRM, da mais tolerante para a mais específica.
+ * Os 4 últimos dígitos funcionam em qualquer formato de armazenamento; as outras só entram
+ * quando a primeira devolve uma página cheia (pode haver mais leads do que os 50 visíveis).
+ */
+export function phoneSearchQueries(phone: string): string[] {
+  const m = phone.match(/^55(\d{2})(\d{8,9})$/)
+  if (!m) return []
+  const rest = m[2]
+  const last4 = rest.slice(-4)
+  const head = rest.slice(0, -4)
+  return [last4, `${head}-${last4}`, `(${m[1]}) ${head}-${last4}`]
+}
+
 /** Dois telefones são "o mesmo" se iguais, ou se só diferem no 9º dígito do celular. */
 export function samePhone(a: string, b: string): boolean {
   const pa = normalizePhone(a)
