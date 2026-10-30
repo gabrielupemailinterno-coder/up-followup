@@ -4,11 +4,12 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import type { KanbanCard, KanbanColumn, ScheduledMessage, Task } from '../src/types'
+import type { CrmJob, CrmLead, KanbanCard, KanbanColumn, ScheduledMessage, Task } from '../src/types'
 import { sendToBackground } from '../src/types'
 import {
-  applyColumnChange, getKanbanCards, getKanbanColumns, getScheduledMessages, getTasks, saveKanbanCard,
+  applyColumnChange, getCrmJobs, getCrmLeads, getKanbanCards, getKanbanColumns, getScheduledMessages, getSettings, getTasks, saveKanbanCard,
 } from '../src/storage'
+import { CRM_ACTIVITY_TYPES, matchLeadByPhone } from '../src/crm'
 import { formatPhone } from '../src/phone'
 import { C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { errorStyle, ghostBtn, inputStyle, primaryBtn, toLocalInput, quickTimes } from '../src/ui'
@@ -35,6 +36,10 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
   const [taskTitle, setTaskTitle] = useState('')
   const [taskWhen, setTaskWhen] = useState(toLocalInput(quickTimes()[1]?.ts ?? Date.now() + DAY))
   const [error, setError] = useState<string | null>(null)
+  const [crmLeads, setCrmLeads] = useState<CrmLead[]>([])
+  const [crmJobs, setCrmJobs] = useState<CrmJob[]>([])
+  const [crmType, setCrmType] = useState('2B - Atendimento Base')
+  const [crmNote, setCrmNote] = useState<string | null>(null)
 
   const [detected, setDetected] = useState<{ name: string; phone: string } | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -45,9 +50,11 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
   const detection = usePhoneDetection(null, p => setDetected({ name, phone: p }))
 
   const load = useCallback(async () => {
-    const [cols, cards, msgs, allTasks] = await Promise.all([
-      getKanbanColumns(), getKanbanCards(), getScheduledMessages(), getTasks(),
+    const [cols, cards, msgs, allTasks, leads, jobs] = await Promise.all([
+      getKanbanColumns(), getKanbanCards(), getScheduledMessages(), getTasks(), getCrmLeads(), getCrmJobs(),
     ])
+    setCrmLeads(leads)
+    setCrmJobs(jobs)
     setColumns([...cols].sort((a, b) => a.order - b.order))
 
     // Casa por telefone; sem telefone, só aceita nome se for único (evita card errado).
@@ -121,6 +128,28 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
     setTaskWhen(toLocalInput(quickTimes()[1]?.ts ?? Date.now() + DAY))
   }
 
+  async function registerInCrm() {
+    setCrmNote(null)
+    const key = card?.phone || phone
+    if (!key) return setCrmNote('Sem telefone para buscar o lead no CRM.')
+    const settings = await getSettings()
+    const r = await sendToBackground({
+      type: 'CRM_ENQUEUE',
+      payload: {
+        phone: key,
+        contactName: card?.contactName || name || key,
+        activityType: crmType,
+        comment: 'Registrado pelo Follow-up UP (WhatsApp).',
+      },
+    })
+    if (!r.ok) setCrmNote(r.message)
+    else if (r.data === 'duplicate') setCrmNote('Esta atividade já foi registrada hoje.')
+    else setCrmNote(settings.crmDryRun ? 'Enviado em modo teste: o formulário será preenchido, mas não enviado.' : 'Na fila: a atividade será registrada no CRM em instantes.')
+  }
+
+  const crmKey = card?.phone || phone
+  const crmMatch = crmKey ? matchLeadByPhone(crmLeads, crmKey) : null
+  const lastCrmJob = crmKey ? [...crmJobs].filter(j => j.phone === crmKey).sort((a, b) => b.createdAt - a.createdAt)[0] : undefined
   const column = columns.find(c => c.id === card?.columnId)
   const daysStill = card ? Math.floor((Date.now() - card.columnChangedAt) / DAY) : 0
   const section: React.CSSProperties = { padding: '14px 16px', borderBottom: `1px solid ${C.line}` }
@@ -233,6 +262,46 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
 
       {contact && (
         <>
+          <div style={section}>
+            <h4 style={h4}><Icon name="list" size={13} /> CRM Incbook</h4>
+            {!crmMatch && <div style={{ fontSize: '12.5px', color: C.muted }}>Sem telefone para buscar no CRM.</div>}
+            {crmMatch?.kind === 'none' && (
+              <div style={{ fontSize: '12.5px', color: C.muted, lineHeight: 1.45, marginBottom: '8px' }}>
+                Lead não encontrado nos dados lidos do CRM. Abra a tela Leads do CRM neste navegador para a extensão sincronizar.
+              </div>
+            )}
+            {crmMatch?.kind === 'many' && (
+              <div style={{ ...errorStyle, marginBottom: '8px' }}>{crmMatch.count} leads com este telefone no CRM. Registre manualmente para não errar o lead.</div>
+            )}
+            {crmMatch?.kind === 'one' && (
+              <div style={{ fontSize: '12.5px', marginBottom: '8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: R.sm, padding: '8px 10px', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 800 }}>{crmMatch.lead.name}</div>
+                {crmMatch.lead.stage && (
+                  <div style={{ color: C.muted }}>
+                    Etapa {crmMatch.lead.stage.order + 1} no funil · {Math.floor((Date.now() - crmMatch.lead.stage.enteredAt) / DAY)} d na etapa
+                    {crmMatch.lead.stage.lastInteractionAt <= crmMatch.lead.stage.enteredAt
+                      ? <span style={{ color: C.warn, fontWeight: 700 }}> · sem ação na etapa</span>
+                      : <> · última interação há {Math.floor((Date.now() - crmMatch.lead.stage.lastInteractionAt) / DAY)} d</>}
+                    {crmMatch.lead.stage.owner ? <> · {crmMatch.lead.stage.owner}</> : null}
+                  </div>
+                )}
+              </div>
+            )}
+            {lastCrmJob && (
+              <div style={{ fontSize: '12px', marginBottom: '8px', color: lastCrmJob.status === 'failed' ? C.danger : C.muted, fontWeight: 600 }}>
+                Última atividade: {{ pending: 'aguardando', running: 'registrando…', done: 'registrada', tested: 'teste ok (não enviada)', failed: 'falhou', skipped: 'não registrada' }[lastCrmJob.status]}
+                {lastCrmJob.message ? ` — ${lastCrmJob.message}` : ''}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <select style={inputStyle} value={crmType} onChange={e => setCrmType(e.target.value)} aria-label="Tipo de atividade">
+                {CRM_ACTIVITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <button style={{ ...ghostBtn, whiteSpace: 'nowrap' }} onClick={registerInCrm}>Registrar</button>
+            </div>
+            {crmNote && <div style={{ fontSize: '12px', color: C.muted, marginTop: '6px', lineHeight: 1.4 }}>{crmNote}</div>}
+          </div>
+
           <div style={section}>
             <h4 style={h4}><Icon name="calendar" size={13} /> Follow-ups pendentes</h4>
             {schedules.length === 0 && <div style={{ fontSize: '12.5px', color: C.muted, marginBottom: '10px' }}>Nenhum agendado.</div>}

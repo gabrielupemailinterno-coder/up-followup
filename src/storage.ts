@@ -1,6 +1,6 @@
 import type {
   ScheduledMessage, KanbanCard, KanbanColumn, AppSettings, Template, SendLog, ActiveSend,
-  Campaign, Task, SendEvent, SendSource,
+  Campaign, Task, SendEvent, SendSource, CrmLead, CrmJob,
 } from './types'
 import { SCHEMA_VERSION } from './types'
 import { DEFAULT_TEMPLATES } from './templates'
@@ -24,6 +24,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   minIntervalSec: 60,
   maxConsecutiveFailures: 3,
   campaignMinFloorSec: 15,
+  crmEnabled: false,
+  crmDryRun: true,
+  crmFirstType: '1 - Tentativa de contato',
+  crmFollowupType: '4B - Follow-up realizado',
 }
 
 // ─── Storage Keys ──────────────────────────────────────────────────────────────
@@ -40,6 +44,9 @@ const KEYS = {
   CAMPAIGNS: 'wm_campaigns',
   TASKS: 'wm_tasks',
   HISTORY: 'wm_send_history',
+  CRM_LEADS: 'wm_crm_leads',
+  CRM_JOBS: 'wm_crm_jobs',
+  CRM_DRIVER_TAB: 'wm_crm_driver_tab',
 }
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
@@ -301,6 +308,65 @@ export async function appendSendEvent(phone: string, source: SendSource): Promis
   const all = await getSendHistory()
   all.push({ ts: Date.now(), phone, source })
   await set(KEYS.HISTORY, all.slice(-HISTORY_CAP))
+}
+
+// ─── CRM Incbook ───────────────────────────────────────────────────────────────
+
+export async function getCrmLeads(): Promise<CrmLead[]> {
+  return get<CrmLead[]>(KEYS.CRM_LEADS, [])
+}
+
+/** Mescla leads lidos do CRM (por id), mantendo os campos que a página atual não trouxe. */
+export async function mergeCrmLeads(incoming: CrmLead[]): Promise<void> {
+  if (incoming.length === 0) return
+  const byId = new Map((await getCrmLeads()).map(l => [l.id, l]))
+  for (const l of incoming) {
+    const old = byId.get(l.id)
+    byId.set(l.id, {
+      ...old,
+      ...l,
+      phones: l.phones.length ? l.phones : old?.phones ?? [],
+      empreendimentos: l.empreendimentos.length ? l.empreendimentos : old?.empreendimentos ?? [],
+      stage: l.stage ?? old?.stage,
+    })
+  }
+  const all = [...byId.values()].sort((a, b) => b.syncedAt - a.syncedAt).slice(0, 5000)
+  await set(KEYS.CRM_LEADS, all)
+}
+
+export async function getCrmJobs(): Promise<CrmJob[]> {
+  return get<CrmJob[]>(KEYS.CRM_JOBS, [])
+}
+
+export async function saveAllCrmJobs(list: CrmJob[]): Promise<void> {
+  await set(KEYS.CRM_JOBS, list.slice(-500))
+}
+
+export async function saveCrmJob(job: CrmJob): Promise<void> {
+  const all = await getCrmJobs()
+  const idx = all.findIndex(j => j.id === job.id)
+  const next = { ...job, updatedAt: Date.now() }
+  if (idx >= 0) all[idx] = next
+  else all.push(next)
+  await saveAllCrmJobs(all)
+}
+
+export async function patchCrmJob(id: string, patch: Partial<CrmJob>): Promise<CrmJob | undefined> {
+  const all = await getCrmJobs()
+  const idx = all.findIndex(j => j.id === id)
+  if (idx < 0) return undefined
+  all[idx] = { ...all[idx], ...patch, updatedAt: Date.now() }
+  await saveAllCrmJobs(all)
+  return all[idx]
+}
+
+export async function getCrmDriverTab(): Promise<number | null> {
+  return get<number | null>(KEYS.CRM_DRIVER_TAB, null)
+}
+
+export async function setCrmDriverTab(id: number | null): Promise<void> {
+  if (id === null) await chrome.storage.local.remove(KEYS.CRM_DRIVER_TAB)
+  else await set(KEYS.CRM_DRIVER_TAB, id)
 }
 
 export const STORAGE_KEYS = KEYS

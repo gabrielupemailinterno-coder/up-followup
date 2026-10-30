@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WhatsApp Web Mod",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Agendamento de follow-ups e Kanban de leads para o WhatsApp Web",
   "permissions": [
     "storage",
@@ -10,7 +10,8 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://web.whatsapp.com/*"
+    "https://web.whatsapp.com/*",
+    "https://crm.incbook.com.br/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -26,6 +27,15 @@
       ],
       "css": [
         "content/content.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://crm.incbook.com.br/*"
+      ],
+      "js": [
+        "content/crm.js"
       ],
       "run_at": "document_idle"
     }

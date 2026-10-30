@@ -52,6 +52,7 @@ Está dentro da extensão (ícone UP, livro) e em PDF na página de [Releases](h
 - **Tarefas** e lembretes com notificação.
 - **Campanhas:** público do Kanban ou lista colada, no mínimo 5 variações de texto, intervalos aleatórios, limite diário, pausa automática em falhas e barra Pausar/Retomar/Parar.
 - **Métricas:** envios por dia, taxa de conclusão, leads por coluna, tempo parado por etapa.
+- **CRM Incbook:** lê seus leads, mostra a etapa do lead no WhatsApp, lista leads sem ação e registra a atividade no lead certo depois de cada envio (opera a tela do CRM como uma pessoa; começa em **modo teste**, que preenche mas não envia).
 - **Backup** em JSON e CSV.
 
 ## ⚠️ Avisos importantes

@@ -29,11 +29,22 @@ import {
   getKanbanCards,
   saveAllKanbanCards,
   applyColumnChange,
+  getSendHistory,
+  getCrmJobs,
+  getCrmLeads,
+  saveCrmJob,
+  patchCrmJob,
+  saveAllCrmJobs,
+  getCrmDriverTab,
+  setCrmDriverTab,
 } from '../src/storage'
+import {
+  buildActivityComment, isDuplicate, makeDedupeKey, matchLeadByPhone, pickActivityType,
+} from '../src/crm'
 import { renderTemplate } from '../src/templates'
 import { nextMorning, pickVariantIndex, randomDelayMs } from '../src/campaign'
 import type {
-  ActiveSend, BackgroundMessage, Campaign, Recurrence, Reply, ScheduledMessage, Task,
+  ActiveSend, BackgroundMessage, Campaign, CrmJob, Recurrence, Reply, ScheduledMessage, Task,
 } from '../src/types'
 
 const ALARM_PREFIX = 'wm_msg_'
@@ -58,6 +69,13 @@ async function bootstrap(browserRestarted: boolean) {
   chrome.alarms.create(TICK_ALARM, { periodInMinutes: 1 })
 
   if (browserRestarted) {
+    // Registros no CRM interrompidos no meio: não repete sozinho (evita duplicar a atividade).
+    await setCrmDriverTab(null)
+    for (const j of await getCrmJobs()) {
+      if (j.status === 'running') {
+        await patchCrmJob(j.id, { status: 'failed', message: 'Interrompido (navegador reiniciado). Confira no CRM e tente de novo.' })
+      }
+    }
     // Nada sai sozinho depois de o computador/navegador ficar parado: campanhas voltam pausadas.
     await setActiveSend(null)
     for (const c of await getCampaigns()) {
@@ -138,6 +156,8 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === TICK_ALARM) {
     await recoverStaleSend()
     await tickCampaigns()
+    await kickCrmDriver()
+    await maybeCloseCrmDriver()
     await updateBadge()
     return
   }
@@ -305,6 +325,7 @@ async function finishSend(job: ActiveSend, p: SendResult): Promise<number | unde
     await patchScheduledMessage(msg.id, { status: 'sent', failReason: undefined })
     await registerSend()
     await appendSendEvent(msg.phone, 'schedule')
+    void enqueueCrmActivity({ phone: msg.phone, contactName: msg.contactName, text: job.text, source: 'schedule' })
     await scheduleNextOccurrence(msg)
     notify(`sent_${msg.id}`, 'WhatsApp Web Mod ✅', `Mensagem enviada para "${msg.contactName}".`)
   } else if (p.code === 'CANCELLED') {
@@ -434,6 +455,7 @@ async function finishCampaignItem(job: ActiveSend, p: SendResult): Promise<numbe
   if (p.ok) {
     await registerSend()
     await appendSendEvent(job.phone, 'campaign')
+    void enqueueCrmActivity({ phone: job.phone, contactName: job.contactName, text: job.text, source: 'campaign' })
     if (c.moveToColumnId) await moveCardOfPhone(job.phone, c.moveToColumnId)
   }
 
@@ -478,9 +500,100 @@ async function tickCampaigns() {
   }
 }
 
+// ─── CRM Incbook: fila de atividades ──────────────────────────────────────────
+
+const CRM_URL = 'https://crm.incbook.com.br'
+const CRM_IDLE_CLOSE_MS = 3 * 60_000
+
+interface CrmJobInput {
+  phone: string
+  contactName: string
+  activityType: string
+  comment: string
+  source: CrmJob['source']
+}
+
+/** Cria o job (com trava de duplicidade) e acorda a aba que opera o CRM. */
+async function enqueueCrmJob(input: CrmJobInput): Promise<Reply> {
+  const settings = await getSettings()
+  const now = Date.now()
+  const dedupeKey = makeDedupeKey(input.phone, input.activityType, input.comment, now)
+  if (isDuplicate(await getCrmJobs(), dedupeKey)) return { ok: true, data: 'duplicate' }
+
+  const match = matchLeadByPhone(await getCrmLeads(), input.phone)
+  const job: CrmJob = {
+    id: `crm_${now}_${Math.random().toString(36).slice(2)}`,
+    phone: input.phone,
+    contactName: input.contactName,
+    activityType: input.activityType,
+    comment: input.comment,
+    dedupeKey,
+    leadId: match.kind === 'one' ? match.lead.id : undefined,
+    leadName: match.kind === 'one' ? match.lead.name : undefined,
+    status: 'pending',
+    dryRun: settings.crmDryRun,
+    attempts: 0,
+    source: input.source,
+    createdAt: now,
+    updatedAt: now,
+  }
+  await saveCrmJob(job)
+  await kickCrmDriver()
+  return { ok: true }
+}
+
+/** Após um envio bem-sucedido: registra a atividade no CRM (se a função estiver ligada). */
+async function enqueueCrmActivity(p: { phone: string; contactName: string; text: string; source: 'schedule' | 'campaign' }) {
+  try {
+    const settings = await getSettings()
+    if (!settings.crmEnabled) return
+    // o envio atual já está no histórico: anteriores = total - 1
+    const prior = (await getSendHistory()).filter(e => e.phone === p.phone).length - 1
+    await enqueueCrmJob({
+      phone: p.phone,
+      contactName: p.contactName,
+      activityType: pickActivityType(prior, settings),
+      comment: buildActivityComment(p.text),
+      source: p.source,
+    })
+  } catch (err) {
+    console.warn('[WM] falha ao enfileirar atividade do CRM', err)
+  }
+}
+
+/** Garante uma aba do CRM, só da extensão (fixada, em segundo plano), enquanto houver job a fazer. */
+async function kickCrmDriver() {
+  const pending = (await getCrmJobs()).some(j => j.status === 'pending' || j.status === 'running')
+  if (!pending) return
+  const id = await getCrmDriverTab()
+  if (id !== null) {
+    try {
+      const tab = await chrome.tabs.get(id)
+      if (tab.url?.startsWith(CRM_URL)) return
+    } catch { /* aba não existe mais */ }
+  }
+  const tab = await chrome.tabs.create({ url: `${CRM_URL}/leads`, active: false, pinned: true })
+  if (tab.id !== undefined) await setCrmDriverTab(tab.id)
+}
+
+async function maybeCloseCrmDriver() {
+  const id = await getCrmDriverTab()
+  if (id === null) return
+  const jobs = await getCrmJobs()
+  const busy = jobs.some(j => j.status === 'pending' || j.status === 'running')
+  const lastUpdate = jobs.reduce((m, j) => Math.max(m, j.updatedAt), 0)
+  if (busy || Date.now() - lastUpdate < CRM_IDLE_CLOSE_MS) return
+  try { await chrome.tabs.remove(id) } catch { /* já fechada */ }
+  await setCrmDriverTab(null)
+}
+
+chrome.tabs.onRemoved.addListener(async tabId => {
+  if ((await getCrmDriverTab()) === tabId) await setCrmDriverTab(null)
+})
+
 // ─── Mensagens (popup / kanban / content) ─────────────────────────────────────
 
-async function handle(msg: BackgroundMessage): Promise<Reply> {
+async function handle(msg: BackgroundMessage, sender?: chrome.runtime.MessageSender): Promise<Reply> {
   switch (msg.type) {
     case 'SCHEDULE_MESSAGE': {
       await saveScheduledMessage(msg.payload)
@@ -569,11 +682,31 @@ async function handle(msg: BackgroundMessage): Promise<Reply> {
       return setCampaignStatus(msg.payload.id, 'stopped', 'Interrompida por você.')
     case 'CAMPAIGN_ADVANCE':
       return advanceCampaign(msg.payload.id)
+
+    case 'CRM_WHO_AM_I': {
+      const id = await getCrmDriverTab()
+      return { ok: true, data: { driver: id !== null && sender?.tab?.id === id } }
+    }
+    case 'CRM_ENQUEUE':
+      return enqueueCrmJob({ ...msg.payload, source: 'manual' })
+    case 'CRM_RETRY': {
+      const settings = await getSettings()
+      const job = await patchCrmJob(msg.payload.id, { status: 'pending', attempts: 0, message: undefined, dryRun: settings.crmDryRun })
+      if (!job) return fail('NOT_FOUND', 'Registro não encontrado.')
+      await kickCrmDriver()
+      return { ok: true }
+    }
+    case 'CRM_DISCARD':
+      await saveAllCrmJobs((await getCrmJobs()).filter(j => j.id !== msg.payload.id))
+      return { ok: true }
+    case 'CRM_KICK':
+      await kickCrmDriver()
+      return { ok: true }
   }
 }
 
-chrome.runtime.onMessage.addListener((msg: BackgroundMessage, _sender, sendResponse) => {
-  handle(msg)
+chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendResponse) => {
+  handle(msg, sender)
     .then(sendResponse)
     .catch(err => sendResponse(fail('INTERNAL', String(err))))
   return true

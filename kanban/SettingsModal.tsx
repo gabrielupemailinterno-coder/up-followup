@@ -8,6 +8,7 @@ import {
   overlayStyle, modalStyle, labelStyle, inputStyle, primaryBtn, ghostBtn, dangerBtn, warnStyle,
 } from '../src/ui'
 import { Icon } from '../src/icons'
+import { CRM_ACTIVITY_TYPES } from '../src/crm'
 import { useFeedback } from '../src/feedback'
 
 const sectionStyle: React.CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R.md, padding: '14px 16px', marginTop: '14px' }
@@ -132,6 +133,38 @@ export function SettingsModal({
           </p>
           <div style={{ ...warnStyle, marginTop: '10px' }}>
             Mesmo com limites, volume alto e textos idênticos para números frios aumentam o risco de bloqueio da conta.
+          </div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h3 style={h3}>CRM Incbook</h3>
+          <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', fontWeight: 600, marginBottom: '10px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={settings.crmEnabled} onChange={e => setSettings({ ...settings, crmEnabled: e.target.checked })} style={{ marginTop: '3px', accentColor: C.brand }} />
+            <span>Registrar a atividade no CRM depois de cada envio<br /><span style={{ fontWeight: 500, color: C.muted, fontSize: '12px' }}>Follow-ups e campanhas viram atividade no lead certo, como se o corretor tivesse lançado.</span></span>
+          </label>
+          <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', fontWeight: 600, marginBottom: '12px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={settings.crmDryRun} onChange={e => setSettings({ ...settings, crmDryRun: e.target.checked })} style={{ marginTop: '3px', accentColor: C.brand }} />
+            <span>Modo teste (preenche o formulário, mas NÃO envia)<br /><span style={{ fontWeight: 500, color: C.muted, fontSize: '12px' }}>Deixe ligado até validar em um lead de teste. Desligue para registrar de verdade.</span></span>
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <label style={labelStyle}>
+              Tipo na 1ª mensagem ao lead
+              <select style={inputStyle} value={settings.crmFirstType} onChange={e => setSettings({ ...settings, crmFirstType: e.target.value })}>
+                {[...new Set([settings.crmFirstType, ...CRM_ACTIVITY_TYPES])].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label style={labelStyle}>
+              Tipo nas mensagens seguintes
+              <select style={inputStyle} value={settings.crmFollowupType} onChange={e => setSettings({ ...settings, crmFollowupType: e.target.value })}>
+                {[...new Set([settings.crmFollowupType, ...CRM_ACTIVITY_TYPES])].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+          </div>
+          <p style={help}>
+            A extensão abre uma aba do CRM fixada, em segundo plano, só para isso (você precisa estar logado no CRM neste navegador). Ela acha o lead pelo telefone, confere o telefone no painel e só então registra. Se houver mais de um lead com o mesmo telefone, ou o telefone não conferir, não registra e avisa na aba CRM do ícone UP.
+          </p>
+          <div style={{ ...warnStyle, marginTop: '10px' }}>
+            Teste primeiro: com o modo teste ligado, envie uma mensagem para um lead de teste e veja o resultado na aba CRM. Só depois desligue o modo teste.
           </div>
         </section>
 

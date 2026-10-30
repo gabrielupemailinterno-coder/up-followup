@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import type { ScheduledMessage, Task } from '../src/types'
+import type { CrmJob, CrmLead, ScheduledMessage, Task } from '../src/types'
 import { sendToBackground } from '../src/types'
 import {
-  ensureSchema, getKanbanCards, getScheduledMessages, getSettings, getTasks, getTodayLog,
+  ensureSchema, getKanbanCards, getScheduledMessages, getSettings, getTasks, getTodayLog, getCrmJobs, getCrmLeads,
 } from '../src/storage'
+import { findStaleLeads } from '../src/crm'
 import { formatPhone } from '../src/phone'
 import { C, FONT, R, SHADOW } from '../src/theme'
 import { errorStyle, inputStyle, quickTimes, toLocalInput } from '../src/ui'
 import { Icon, type IconName } from '../src/icons'
 
-type Tab = 'queue' | 'tasks' | 'history'
+type Tab = 'queue' | 'tasks' | 'history' | 'crm'
 
 const HIDE_KEY = 'wm_hide_onboarding'
 const logo = (f: string) => chrome.runtime.getURL(`brand/${f}`)
@@ -30,6 +31,9 @@ export default function PopupApp() {
   const [usage, setUsage] = useState({ count: 0, limit: 30 })
   const [cardCount, setCardCount] = useState(0)
   const [hasWaTab, setHasWaTab] = useState(false)
+  const [crmJobs, setCrmJobs] = useState<CrmJob[]>([])
+  const [crmLeads, setCrmLeads] = useState<CrmLead[]>([])
+  const [crmCfg, setCrmCfg] = useState({ enabled: false, dryRun: true })
   const [hideOnboarding, setHideOnboarding] = useState(true)
   const [tab, setTab] = useState<Tab | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -37,11 +41,15 @@ export default function PopupApp() {
 
   const load = useCallback(async () => {
     await ensureSchema()
-    const [msgs, log, settings, allTasks, cards, tabs, hidden] = await Promise.all([
+    const [msgs, log, settings, allTasks, cards, tabs, hidden, jobs, leads] = await Promise.all([
       getScheduledMessages(), getTodayLog(), getSettings(), getTasks(), getKanbanCards(),
       chrome.tabs.query({ url: 'https://web.whatsapp.com/*' }),
       chrome.storage.local.get(HIDE_KEY),
+      getCrmJobs(), getCrmLeads(),
     ])
+    setCrmJobs([...jobs].sort((a, b) => b.createdAt - a.createdAt).slice(0, 40))
+    setCrmLeads(leads)
+    setCrmCfg({ enabled: settings.crmEnabled, dryRun: settings.crmDryRun })
     setMessages(msgs.sort((a, b) => a.scheduledAt - b.scheduledAt))
     setTasks(allTasks.filter(t => !t.done).sort((a, b) => a.dueAt - b.dueAt))
     setUsage({ count: log.count, limit: settings.dailyLimit })
@@ -148,6 +156,7 @@ export default function PopupApp() {
         <TabBtn active={activeTab === 'queue'} onClick={() => setTab('queue')} count={overdue.length + upcoming.length} alert={overdue.length > 0}>Fila</TabBtn>
         <TabBtn active={activeTab === 'tasks'} onClick={() => setTab('tasks')} count={tasks.length} alert={overdueTasks.length > 0}>Tarefas</TabBtn>
         <TabBtn active={activeTab === 'history'} onClick={() => setTab('history')} count={0}>Histórico</TabBtn>
+        <TabBtn active={activeTab === 'crm'} onClick={() => setTab('crm')} count={crmJobs.filter(j => j.status === 'failed' || j.status === 'pending' || j.status === 'running').length} alert={crmJobs.some(j => j.status === 'failed')}>CRM</TabBtn>
       </div>
 
       <div style={{ maxHeight: '360px', overflowY: 'auto', padding: '10px 14px 14px', borderTop: `1px solid ${C.line}`, marginTop: '-1px' }}>
@@ -192,6 +201,10 @@ export default function PopupApp() {
             ))}
             <TaskForm onSave={task => act(sendToBackground({ type: 'TASK_SAVE', payload: task }))} />
           </>
+        )}
+
+        {activeTab === 'crm' && (
+          <CrmTab jobs={crmJobs} leads={crmLeads} cfg={crmCfg} now={now} act={act} />
         )}
 
         {activeTab === 'history' && (
@@ -424,5 +437,90 @@ function MiniBtn({
       {icon && <Icon name={icon} size={13} />}
       {children}
     </button>
+  )
+}
+
+// ─── Aba CRM ──────────────────────────────────────────────────────────────────
+
+const CRM_STATUS: Record<CrmJob['status'], { label: string; fg: string; bg: string }> = {
+  pending: { label: 'Aguardando', fg: C.warn, bg: C.warnSoft },
+  running: { label: 'Registrando…', fg: C.info, bg: C.infoSoft },
+  done: { label: 'Registrada', fg: C.ok, bg: C.okSoft },
+  tested: { label: 'Teste ok (não enviada)', fg: C.info, bg: C.infoSoft },
+  failed: { label: 'Falhou', fg: C.danger, bg: C.dangerSoft },
+  skipped: { label: 'Não registrada', fg: C.muted, bg: '#ECEAE0' },
+}
+
+function CrmTab({
+  jobs, leads, cfg, now, act,
+}: {
+  jobs: CrmJob[]
+  leads: CrmLead[]
+  cfg: { enabled: boolean; dryRun: boolean }
+  now: number
+  act: (p: Promise<{ ok: boolean; message?: string }>) => void
+}) {
+  const stale = findStaleLeads(leads, now, 2).slice(0, 8)
+  const withPhone = new Map(leads.flatMap(l => l.phones.map(p => [l.id, p] as const)))
+
+  return (
+    <>
+      {!cfg.enabled ? (
+        <div style={{ ...card, background: C.warnSoft, borderColor: '#E9D5A6', color: C.warn, fontSize: '12px', lineHeight: 1.45 }}>
+          <strong>Registro no CRM desligado.</strong> Ligue em Configurações &gt; CRM Incbook para lançar a atividade automaticamente depois de cada envio.
+          <div style={{ marginTop: '6px' }}>
+            <MiniBtn icon="sliders" onClick={() => sendToBackground({ type: 'OPEN_KANBAN', payload: { hash: 'config' } })}>Abrir configurações</MiniBtn>
+          </div>
+        </div>
+      ) : cfg.dryRun ? (
+        <div style={{ ...card, background: C.infoSoft, borderColor: '#C3D6E1', color: C.info, fontSize: '12px', lineHeight: 1.45 }}>
+          <strong>Modo teste.</strong> A extensão preenche o formulário do CRM, mas <strong>não envia</strong>. Valide em um lead de teste e depois desligue em Configurações.
+        </div>
+      ) : null}
+
+      <GroupLabel>Atividades no CRM</GroupLabel>
+      {jobs.length === 0 && <Empty icon="list" title="Nada na fila do CRM" text="Depois de cada envio, a atividade aparece aqui com o resultado." />}
+      {jobs.map(j => {
+        const st = CRM_STATUS[j.status]
+        return (
+          <div key={j.id} style={{ ...card, borderLeft: `3px solid ${st.fg}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 800, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.contactName}</span>
+              <Chip fg={st.fg} bg={st.bg}>{st.label}</Chip>
+            </div>
+            <div style={{ fontSize: '11px', color: C.muted, margin: '3px 0', fontWeight: 600 }}>
+              {formatPhone(j.phone)} · {j.activityType} · {new Date(j.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+            </div>
+            {j.message && <div style={{ fontSize: '12px', color: j.status === 'failed' ? C.danger : C.inkSoft, lineHeight: 1.4, marginBottom: '6px' }}>{j.message}</div>}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {(j.status === 'failed' || j.status === 'tested' || j.status === 'skipped') && (
+                <MiniBtn primary icon="repeat" onClick={() => act(sendToBackground({ type: 'CRM_RETRY', payload: { id: j.id } }))}>{j.status === 'tested' ? (cfg.dryRun ? 'Repetir teste' : 'Registrar de verdade') : 'Tentar de novo'}</MiniBtn>
+              )}
+              <MiniBtn danger onClick={() => act(sendToBackground({ type: 'CRM_DISCARD', payload: { id: j.id } }))}>Descartar</MiniBtn>
+            </div>
+          </div>
+        )
+      })}
+
+      <GroupLabel>Leads sem ação na etapa (CRM)</GroupLabel>
+      {leads.length === 0 && <Empty icon="user" title="Ainda sem dados do CRM" text="Abra o CRM (telas Leads ou Funil) neste navegador: a extensão lê os leads sozinha." />}
+      {leads.length > 0 && stale.length === 0 && <div style={{ fontSize: '12px', color: C.muted, marginBottom: '8px' }}>Nenhum lead parado há mais de 2 dias, entre os {leads.length} lidos.</div>}
+      {stale.map(({ lead, daysInStage }) => (
+        <div key={lead.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.name}</div>
+            <div style={{ fontSize: '11px', color: C.warn, fontWeight: 700 }}>{Math.floor(daysInStage)} dias na etapa, sem ação</div>
+          </div>
+          {lead.phones[0] && (
+            <MiniBtn icon="chat" onClick={() => sendToBackground({ type: 'OPEN_CHAT', payload: { phone: lead.phones[0] } })}>Abrir conversa</MiniBtn>
+          )}
+        </div>
+      ))}
+      {stale.some(s => !withPhone.has(s.lead.id)) && (
+        <div style={{ fontSize: '11px', color: C.muted, lineHeight: 1.4 }}>
+          Leads sem telefone aparecem sem o botão: abra a tela Leads do CRM para a extensão ler o telefone.
+        </div>
+      )}
+    </>
   )
 }

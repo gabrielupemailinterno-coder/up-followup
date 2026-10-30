@@ -35,6 +35,7 @@
       <li class="sub"><a href="#kanban">Kanban</a></li>
       <li class="sub"><a href="#campanhas">Campanhas</a></li>
       <li class="sub"><a href="#metricas">Métricas</a></li>
+      <li class="sub"><a href="#crm">CRM Incbook</a></li>
       <li class="sub"><a href="#config">Configurações e backup</a></li>
       <li class="sub"><a href="#popup">Ícone da extensão</a></li>
       <li class="group">Apoio</li>
@@ -52,7 +53,7 @@
       <h1>Manual do Follow-up UP para WhatsApp Web</h1>
       <p class="lead">Como instalar e como usar a extensão que organiza seus leads, agenda follow-ups e mantém sua rotina comercial em dia.</p>
       <div class="meta">
-        <span>Versão <b data-version>1.4.1</b></span>
+        <span>Versão <b data-version>1.5.0</b></span>
         <span>Atualizado em 30/10/2026</span>
         <span>Chrome e Edge</span>
       </div>
@@ -380,6 +381,43 @@
         </ul>
         <p>O histórico de envios começa a ser registrado a partir da versão 1.2.</p>
 
+        <h3 id="crm">CRM Incbook</h3>
+        <p>A extensão conversa com o CRM <strong>como uma pessoa faria</strong>, usando a sua própria sessão aberta: ela não guarda senha nem usa API.</p>
+
+        <h4>O que ela faz</h4>
+        <ul>
+          <li><strong>Lê seus leads (só depois de ligar em Configurações):</strong> ao abrir as telas <em>Leads</em> ou <em>Funil</em> do CRM neste navegador, a extensão guarda localmente nome, telefone e dados da etapa (entrada, última interação, corretor).</li>
+          <li><strong>Mostra o lead no WhatsApp:</strong> no Painel do contato, o bloco <em>CRM Incbook</em> mostra a etapa, os dias na etapa, a última interação e se está sem ação.</li>
+          <li><strong>Avisa leads sem ação:</strong> a aba <em>CRM</em> do ícone UP lista os leads parados há mais de 2 dias sem nenhuma ação na etapa, com botão para abrir a conversa.</li>
+          <li><strong>Registra a atividade:</strong> depois de cada envio (follow-up ou campanha), lança a atividade no lead certo. A 1ª mensagem vira <em>1 - Tentativa de contato</em> e as seguintes <em>4B - Follow-up realizado</em> (você pode trocar em Configurações). O comentário traz o início do texto enviado.</li>
+        </ul>
+
+        <h4>Como ligar (comece pelo modo teste)</h4>
+        <ol class="steps">
+          <li><strong class="t">Ligue em Configurações &gt; CRM Incbook</strong><p>Marque <em>Registrar a atividade no CRM depois de cada envio</em>. Deixe o <strong>Modo teste</strong> marcado: a extensão preenche o formulário do CRM, mas <strong>não envia</strong>. A leitura dos leads só começa depois de você ligar.</p></li>
+          <li><strong class="t">Entre no CRM neste navegador</strong><p>Abra <code>crm.incbook.com.br</code>, faça login e passe pelas telas <em>Leads</em> e <em>Funil</em> para a extensão ler seus leads (nome, telefone e etapa).</p></li>
+          <li><strong class="t">Teste com um lead de teste</strong><p>Envie uma mensagem para um lead de teste (nome com “teste”). Na aba <em>CRM</em> do ícone UP o registro deve aparecer como <span class="chip brand">Teste ok (não enviada)</span>.</p></li>
+          <li><strong class="t">Desligue o modo teste</strong><p>Quando o teste estiver certo, desmarque o modo teste. Daí em diante a atividade é registrada de verdade. Dá para registrar uma atividade já testada com <em>Registrar de verdade</em>.</p></li>
+        </ol>
+
+        <h4>Como funciona por baixo</h4>
+        <p>A extensão abre uma <strong>aba do CRM fixada, em segundo plano</strong>, só para isso, e a fecha quando não há mais nada a registrar. Seu trabalho nas outras abas do CRM não é interrompido. Para cada registro ela: (1) busca o telefone na tela <em>Leads</em>, (2) abre o card do lead no <em>Funil</em>, (3) <strong>confere o telefone no painel do lead</strong>, (4) preenche tipo, comentário e envia, e (5) confirma que a atividade apareceu na lista.</p>
+
+        <h4>Travas de segurança</h4>
+        <table>
+          <thead><tr><th style="width:34%">Situação</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td>Telefone do painel não confere</td><td>Não registra e avisa. Nada é gravado no lead errado.</td></tr>
+            <tr><td>Mais de um lead com o mesmo telefone</td><td>Não registra (<span class="chip muted">Não registrada</span>). Lance manualmente.</td></tr>
+            <tr><td>Lead não encontrado</td><td>Falha com aviso. Passe pela tela <em>Leads</em> do CRM e tente de novo.</td></tr>
+            <tr><td>Mesma atividade no mesmo dia</td><td>Não duplica.</td></tr>
+            <tr><td>Não deu para confirmar o registro</td><td>Falha com aviso para <strong>conferir no CRM antes de tentar de novo</strong>, para não duplicar.</td></tr>
+            <tr><td>Navegador reiniciado no meio do registro</td><td>Não repete sozinho: pede para conferir no CRM.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout warn"><div><b class="h">Atenção</b><p>Como a extensão opera a tela do CRM, uma mudança no layout do CRM pode fazer os registros falharem. Se isso acontecer, os registros ficam na aba <em>CRM</em> com o motivo, e nada é perdido: avise o gestor com a mensagem exibida. Confira de tempos em tempos se as atividades estão aparecendo nos leads.</p></div></div>
+
         <h3 id="config">Configurações e backup</h3>
         <p>Ícone UP &gt; símbolo de ajustes, ou o mesmo símbolo no topo do Kanban.</p>
         <table>
@@ -451,6 +489,10 @@
 
         <div class="qa"><h4>Não recebo as notificações</h4><p>Verifique as notificações do sistema para o Chrome/Edge (passo 8 da instalação) e se o modo “Não perturbe/Foco” está desligado.</p></div>
 
+        <div class="qa"><h4>Abriu uma aba fixada do CRM sozinha</h4><p>É a aba de trabalho da extensão para registrar atividades no CRM. Ela fica em segundo plano e fecha sozinha alguns minutos depois de terminar. Pode ignorar; não use nem feche durante um registro.</p></div>
+
+        <div class="qa"><h4>A atividade não foi registrada no CRM</h4><p>Abra o ícone UP &gt; aba <em>CRM</em> e leia a mensagem do registro. Causas comuns: você não está logado no CRM neste navegador, o lead não foi lido ainda (passe pelas telas <em>Leads</em> e <em>Funil</em>), há dois leads com o mesmo telefone, ou o modo teste está ligado. Depois de resolver, use <em>Tentar de novo</em>.</p></div>
+
         <div class="qa"><h4>Perdi meus dados</h4><p>Os dados ficam no navegador. Se removeu a extensão ou limpou os dados do navegador, restaure o último backup em Configurações &gt; <em>Importar backup</em>. Por isso exporte backups com frequência.</p></div>
 
         <div class="qa"><h4>Posso usar em dois computadores?</h4><p>Pode instalar nos dois, mas cada um terá seus próprios dados. Para levar leads de um para o outro, exporte o backup em um e importe no outro (a importação substitui os dados do destino).</p></div>
@@ -470,6 +512,7 @@
             <li><span class="kbd">/</span> no campo de mensagem = respostas rápidas.</li>
             <li><strong>Vencido?</strong> Enviar, Reagendar ou Pular. Nada sai atrasado sozinho.</li>
             <li><strong>Campanha:</strong> mínimo 5 variações, intervalos aleatórios, barra com Pausar/Parar.</li>
+            <li><strong>CRM:</strong> comece no modo teste; confira a aba CRM do ícone UP.</li>
             <li><strong>Backup</strong> toda semana: Configurações &gt; Exportar backup.</li>
             <li><strong>Aviso de restrição do WhatsApp?</strong> Pare tudo e fale com o gestor.</li>
           </ul>
@@ -479,7 +522,7 @@
 
     <footer class="foot">
       <span>UP Consultoria Imobiliária · Uso interno da equipe</span>
-      <span>Follow-up UP v<span data-version>1.4.1</span> · Atualizado em 30/10/2026</span>
+      <span>Follow-up UP v<span data-version>1.5.0</span> · Atualizado em 30/10/2026</span>
     </footer>
   </main>
 </div>

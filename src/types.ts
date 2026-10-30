@@ -1,6 +1,6 @@
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly'
 export type ScheduleStatus = 'pending' | 'sent' | 'failed' | 'skipped'
@@ -75,6 +75,10 @@ export interface AppSettings {
   minIntervalSec: number        // intervalo mínimo entre envios agendados
   maxConsecutiveFailures: number   // campanha pausa após N falhas seguidas
   campaignMinFloorSec: number   // piso do intervalo mínimo de uma campanha
+  crmEnabled: boolean           // registrar atividade no CRM Incbook após cada envio
+  crmDryRun: boolean            // modo teste: preenche o formulário mas NÃO envia
+  crmFirstType: string          // tipo de atividade da 1ª mensagem ao lead
+  crmFollowupType: string       // tipo de atividade dos envios seguintes
 }
 
 export interface SendLog {
@@ -139,6 +143,44 @@ export interface Campaign {
   updatedAt: number
 }
 
+// ─── CRM Incbook ──────────────────────────────────────────────────────────────
+
+export interface CrmStageInfo {
+  order: number
+  enteredAt: number            // entrada na etapa
+  lastInteractionAt: number    // última interação do dono do lead
+  owner?: string
+}
+
+export interface CrmLead {
+  id: string
+  name: string
+  phones: string[]             // E.164 sem "+"
+  empreendimentos: string[]
+  stage?: CrmStageInfo
+  syncedAt: number
+}
+
+export type CrmJobStatus = 'pending' | 'running' | 'done' | 'tested' | 'failed' | 'skipped'
+
+export interface CrmJob {
+  id: string
+  phone: string
+  contactName: string
+  activityType: string         // texto exato da opção do CRM, ex.: "1 - Tentativa de contato"
+  comment: string
+  dedupeKey: string
+  leadId?: string
+  leadName?: string
+  status: CrmJobStatus
+  dryRun: boolean
+  message?: string
+  attempts: number
+  source: 'schedule' | 'campaign' | 'manual'
+  createdAt: number
+  updatedAt: number
+}
+
 export interface BackupFile {
   app: 'whatsapp-web-mod'
   schemaVersion: number
@@ -175,6 +217,11 @@ export type BackgroundMessage =
   | { type: 'CAMPAIGN_RESUME'; payload: { id: string } }
   | { type: 'CAMPAIGN_STOP'; payload: { id: string } }
   | { type: 'CAMPAIGN_ADVANCE'; payload: { id: string } }
+  | { type: 'CRM_WHO_AM_I' }
+  | { type: 'CRM_ENQUEUE'; payload: { phone: string; contactName: string; activityType: string; comment: string } }
+  | { type: 'CRM_RETRY'; payload: { id: string } }
+  | { type: 'CRM_DISCARD'; payload: { id: string } }
+  | { type: 'CRM_KICK' }
 
 export type Reply<T = unknown> =
   | { ok: true; data?: T }
