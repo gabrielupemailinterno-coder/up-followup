@@ -7,6 +7,7 @@ import type { Campaign } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { getCampaigns, STORAGE_KEYS as K } from '../src/storage'
 import { watchStorage } from '../src/storageWatch'
+import { safeInterval } from '../src/alive'
 import { campaignProgress } from '../src/campaign'
 import { C, FONT, R, SHADOW } from '../src/theme'
 import { Icon, type IconName } from '../src/icons'
@@ -29,8 +30,7 @@ export function CampaignBar() {
 
   useEffect(() => {
     if (!hasActive) return
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
+    return safeInterval(() => setNow(Date.now()), 1000)
   }, [hasActive])
 
   if (!hasActive) return null

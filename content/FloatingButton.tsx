@@ -10,6 +10,7 @@ import type { ActiveSend } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { getScheduledMessages, getTasks, STORAGE_KEYS as K } from '../src/storage'
 import { watchStorage } from '../src/storageWatch'
+import { safeInterval } from '../src/alive'
 import { BASE_CSS, C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { Icon, type IconName } from '../src/icons'
 import { SchedulerModal } from './SchedulerModal'
@@ -68,8 +69,7 @@ function FloatingApp() {
       setContact(prev => (prev?.name === c?.name && prev?.phone === c?.phone ? prev : c))
     }
     read()
-    const interval = setInterval(read, 2500)
-    return () => clearInterval(interval)
+    return safeInterval(read, 2500)
   }, [])
 
   // Selo: follow-ups vencidos + tarefas vencidas
@@ -84,8 +84,8 @@ function FloatingApp() {
     }
     void load()
     const stop = watchStorage([K.SCHEDULED, K.TASKS], () => { void load() }, 800)
-    const t = setInterval(() => { if (!document.hidden) void load() }, 60_000)
-    return () => { stop(); clearInterval(t) }
+    const stopTimer = safeInterval(() => { if (!document.hidden) return load() }, 60_000)
+    return () => { stop(); stopTimer() }
   }, [])
 
   function toggleDock(next: boolean) {

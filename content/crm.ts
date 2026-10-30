@@ -11,6 +11,7 @@ import { sendToBackground } from '../src/types'
 import { getCrmJobs, getSettings, mergeCrmLeads, patchCrmJob } from '../src/storage'
 import { runJobStep } from '../src/crmDriver'
 import { createCrmAdapter, leadsFromFunilPage, leadsFromLeadsPage, sleep } from './crm-adapter'
+import { extensionAlive, safeInterval } from '../src/alive'
 
 const MAX_PAGE_LOADS_PER_JOB = 6
 const RUNNING_TIMEOUT_MS = 4 * 60_000
@@ -20,7 +21,7 @@ const RUNNING_TIMEOUT_MS = 4 * 60_000
 function startReader() {
   // Leve de propósito: só lê com a aba visível, a cada 8 s, e grava no storage no máximo a cada 30 s.
   let enabled = false
-  const refreshEnabled = () => { void getSettings().then(st => { enabled = st.crmEnabled }) }
+  const refreshEnabled = () => { void getSettings().then(st => { enabled = st.crmEnabled }).catch(() => {}) }
   refreshEnabled()
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && 'wm_settings' in changes) refreshEnabled()
@@ -50,7 +51,7 @@ function startReader() {
     void mergeCrmLeads(batch)
   }
 
-  setInterval(() => { tick(); flush() }, 8000)
+  safeInterval(() => { tick(); flush() }, 8000)
 }
 
 // ─── Executor ─────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ async function runDriver() {
   const adapter = createCrmAdapter()
   await sleep(2500) // dá tempo da página do CRM terminar de montar
 
-  for (;;) {
+  while (extensionAlive()) {
     const jobs = await getCrmJobs()
     let job: CrmJob | undefined = jobs.find(j => j.status === 'running') ?? jobs.find(j => j.status === 'pending')
     if (!job) {
@@ -99,6 +100,8 @@ async function runDriver() {
 // ─── Início ───────────────────────────────────────────────────────────────────
 
 startReader()
-void sendToBackground<{ driver: boolean }>({ type: 'CRM_WHO_AM_I' }).then(r => {
-  if (r.ok && r.data?.driver) void runDriver()
-})
+void sendToBackground<{ driver: boolean }>({ type: 'CRM_WHO_AM_I' })
+  .then(r => {
+    if (r.ok && r.data?.driver) void runDriver().catch(() => { /* extensão recarregada: este script é órfão */ })
+  })
+  .catch(() => {})
