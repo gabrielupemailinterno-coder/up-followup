@@ -52,7 +52,7 @@
       <h1>Manual do Follow-up UP para WhatsApp Web</h1>
       <p class="lead">Como instalar e como usar a extensão que organiza seus leads, agenda follow-ups e mantém sua rotina comercial em dia.</p>
       <div class="meta">
-        <span>Versão <b data-version>1.4.0</b></span>
+        <span>Versão <b data-version>1.4.1</b></span>
         <span>Atualizado em 30/10/2026</span>
         <span>Chrome e Edge</span>
       </div>
@@ -117,6 +117,8 @@
             </ol>
             <div class="cmd"><span>irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex</span><button type="button">Copiar</button></div>
             <p>A extensão fica em <code>C:\Users\SEU_USUARIO\UP-Followup</code>.</p>
+            <div class="callout warn"><div><b class="h">Use o PowerShell, não o Prompt de Comando</b><p>Se aparecer “irm não é reconhecido como um comando interno”, você abriu o <em>Prompt de Comando</em> (tela preta). Abra o <em>Windows PowerShell</em> (ícone azul). Se preferir continuar no Prompt de Comando, use este comando, que chama o PowerShell por dentro:</p></div></div>
+            <div class="cmd"><span>powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex"</span><button type="button">Copiar</button></div>
           </div>
         </div>
 
@@ -246,7 +248,7 @@
         <ol>
           <li>Abra a conversa do lead.</li>
           <li>Menu UP &gt; <strong>Salvar no Kanban</strong>.</li>
-          <li>Confira o <strong>telefone</strong>. O sistema tenta detectá-lo sozinho; se não conseguir, digite com DDD, por exemplo <code>(31) 99999-9999</code>.</li>
+          <li>Confira o <strong>telefone</strong>. O sistema o detecta sozinho: ele abre por um instante o painel <em>Dados do contato</em> do WhatsApp, lê o número e fecha o painel. Se não conseguir (por exemplo, em grupos), clique em <em>Detectar do WhatsApp</em> ou digite com DDD, como <code>(31) 99999-9999</code>.</li>
           <li>Escolha a etapa e clique em <strong>Salvar contato</strong>.</li>
         </ol>
         <div class="callout info"><div><b class="h">Por que o telefone?</b><p>Todo o sistema identifica o lead pelo <strong>telefone</strong>, nunca pelo nome. Isso evita enviar mensagem para a pessoa errada quando há nomes iguais. Cada telefone só pode existir uma vez no Kanban.</p></div></div>
@@ -443,7 +445,7 @@
 
         <div class="qa"><h4>A campanha pausou sozinha</h4><p>A barra de controle e a tela de Campanhas mostram o motivo. Limite diário e reinício do navegador são normais; falhas seguidas pedem que você verifique a conexão e os telefones antes de retomar. Em caso de aviso de restrição, não retome e procure o gestor.</p></div>
 
-        <div class="qa"><h4>O telefone do contato não é detectado automaticamente</h4><p>Isso é normal para alguns contatos salvos na agenda. Digite o número com DDD nos campos de telefone.</p></div>
+        <div class="qa"><h4>O telefone do contato não foi detectado</h4><p>O sistema lê o número no painel <em>Dados do contato</em> do WhatsApp. Se o WhatsApp não mostrar o número daquele contato (grupos, ou contatos que escondem o número), clique em <em>Detectar do WhatsApp</em> para tentar de novo ou digite o telefone com DDD.</p></div>
 
         <div class="qa"><h4>A página do WhatsApp recarrega a cada envio</h4><p>É esperado. Para abrir cada conversa pelo número, a página é recarregada. Leva alguns segundos.</p></div>
 
@@ -477,7 +479,7 @@
 
     <footer class="foot">
       <span>UP Consultoria Imobiliária · Uso interno da equipe</span>
-      <span>Follow-up UP v<span data-version>1.4.0</span> · Atualizado em 30/10/2026</span>
+      <span>Follow-up UP v<span data-version>1.4.1</span> · Atualizado em 30/10/2026</span>
     </footer>
   </main>
 </div>

@@ -10,6 +10,7 @@ import { C } from '../src/theme'
 import { overlayStyle, modalStyle, labelStyle, inputStyle, primaryBtn, errorStyle, okStyle } from '../src/ui'
 import { Icon } from '../src/icons'
 import type { CurrentContact } from './whatsapp-bridge'
+import { usePhoneDetection } from './usePhoneDetection'
 
 export function QuickAddModal({ contact, onClose }: { contact: CurrentContact | null; onClose: () => void }) {
   const [name, setName] = useState(contact?.name ?? '')
@@ -28,6 +29,7 @@ export function QuickAddModal({ contact, onClose }: { contact: CurrentContact | 
   }, [])
 
   const phone = normalizePhone(phoneRaw)
+  const detection = usePhoneDetection(contact, p => setPhoneRaw(cur => (cur.trim() ? cur : formatPhone(p))))
 
   async function handleSave() {
     setError(null)
@@ -74,8 +76,15 @@ export function QuickAddModal({ contact, onClose }: { contact: CurrentContact | 
           <label style={labelStyle}>
             Telefone
             <input style={inputStyle} value={phoneRaw} onChange={e => setPhoneRaw(e.target.value)} placeholder="(31) 99999-9999" />
-            <span style={{ fontSize: '11px', fontWeight: 600, color: phone ? C.ok : C.muted }}>
-              {phone ? formatPhone(phone) : 'Não detectado: digite o número com DDD'}
+            <span style={{ fontSize: '11px', fontWeight: 600, color: phone ? C.ok : detection.failed ? C.warn : C.muted }}>
+              {detection.detecting
+                ? 'Detectando o telefone no WhatsApp…'
+                : phone
+                  ? formatPhone(phone)
+                  : <>
+                      {detection.failed ? 'Não achei o telefone: digite com DDD. ' : 'DDD + número. '}
+                      {contact && <button type="button" onClick={detection.run} style={{ background: 'none', border: 'none', padding: 0, color: C.brand, fontWeight: 800, textDecoration: 'underline', fontSize: '11px' }}>Detectar do WhatsApp</button>}
+                    </>}
             </span>
           </label>
           <label style={labelStyle}>

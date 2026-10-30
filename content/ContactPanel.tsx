@@ -3,7 +3,7 @@
  * da conversa aberta (etapa, tags, notas), follow-ups pendentes e tarefas.
  */
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { KanbanCard, KanbanColumn, ScheduledMessage, Task } from '../src/types'
 import { sendToBackground } from '../src/types'
 import {
@@ -14,6 +14,7 @@ import { C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { errorStyle, ghostBtn, inputStyle, primaryBtn, toLocalInput, quickTimes } from '../src/ui'
 import { Icon } from '../src/icons'
 import type { CurrentContact } from './whatsapp-bridge'
+import { usePhoneDetection } from './usePhoneDetection'
 
 interface Props {
   contact: CurrentContact | null
@@ -35,8 +36,13 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
   const [taskWhen, setTaskWhen] = useState(toLocalInput(quickTimes()[1]?.ts ?? Date.now() + DAY))
   const [error, setError] = useState<string | null>(null)
 
-  const phone = contact?.phone ?? ''
+  const [detected, setDetected] = useState<{ name: string; phone: string } | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const triedAuto = useRef(new Set<string>())
+
   const name = contact?.name ?? ''
+  const phone = contact?.phone ?? (detected && detected.name === name ? detected.phone : '')
+  const detection = usePhoneDetection(null, p => setDetected({ name, phone: p }))
 
   const load = useCallback(async () => {
     const [cols, cards, msgs, allTasks] = await Promise.all([
@@ -57,6 +63,7 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
     const key = found?.phone || phone
     setSchedules(key ? msgs.filter(m => m.phone === key && m.status === 'pending') : [])
     setTasks(key ? allTasks.filter(t => t.phone === key && !t.done) : [])
+    setLoaded(true)
   }, [phone, name])
 
   useEffect(() => {
@@ -65,6 +72,14 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
     chrome.storage.onChanged.addListener(onChange)
     return () => chrome.storage.onChanged.removeListener(onChange)
   }, [load])
+
+  // Sem telefone e sem card: tenta descobrir o número uma vez por conversa (pelo painel "Dados do contato").
+  useEffect(() => {
+    if (!loaded || !contact || phone || card || triedAuto.current.has(name)) return
+    triedAuto.current.add(name)
+    detection.run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, contact, phone, card, name])
 
   async function patchCard(patch: Partial<KanbanCard>) {
     if (!card) return
@@ -131,7 +146,9 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: '15px', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name || 'Nenhuma conversa aberta'}</div>
-            <div style={{ fontSize: '12px', opacity: 0.85, fontWeight: 500 }}>{phone ? formatPhone(phone) : 'telefone não detectado'}</div>
+            <div style={{ fontSize: '12px', opacity: 0.85, fontWeight: 500 }}>
+              {phone ? formatPhone(phone) : detection.detecting ? 'detectando telefone…' : 'telefone não detectado'}
+            </div>
           </div>
         </div>
         {card && column && (
@@ -156,6 +173,16 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
         <div style={section}>
           <p style={{ margin: '0 0 10px', fontSize: '13px', color: C.inkSoft, lineHeight: 1.5 }}>Este contato ainda não está no Kanban.</p>
           <button style={{ ...primaryBtn(), width: '100%' }} onClick={onQuickAdd}><Icon name="userPlus" size={16} /> Salvar no Kanban</button>
+          {!phone && (
+            <button style={{ ...ghostBtn, width: '100%', marginTop: '8px' }} onClick={detection.run} disabled={detection.detecting}>
+              <Icon name="phone" size={15} /> {detection.detecting ? 'Detectando…' : 'Detectar telefone'}
+            </button>
+          )}
+          {!phone && detection.failed && (
+            <p style={{ margin: '8px 0 0', fontSize: '12px', color: C.warn, lineHeight: 1.45 }}>
+              O WhatsApp não mostrou o número deste contato. Ao salvar, digite o telefone com DDD.
+            </p>
+          )}
         </div>
       )}
 

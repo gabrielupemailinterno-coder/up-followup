@@ -24,10 +24,71 @@ export function getCurrentContact(): CurrentContact | null {
   // Conversas 1:1 trazem o JID nas mensagens: data-id="true_5531999999999@c.us_ABC…"
   if (!phone) {
     const msg = queryFirst('messageWithJid', document.querySelector('#main') ?? document)
-    const m = msg?.getAttribute('data-id')?.match(/_(\d{10,15})@c\.us/)
+    const m = msg?.getAttribute('data-id')?.match(/_(\d{10,15})@(?:c\.us|s\.whatsapp\.net)/)
     if (m) phone = m[1]
   }
   return { name, phone }
+}
+
+// ─── Telefone pelo painel "Dados do contato" ──────────────────────────────────
+// Os data-id das mensagens hoje são só códigos hexadecimais, sem o número. O telefone aparece
+// no painel lateral "Dados do contato"; abrimos o painel, lemos e fechamos em ~0,1 s.
+
+const PHONE_LINE_RE = /^\+?\d[\d\s().-]{8,}\d$/
+
+function readPhoneFromInfoDrawer(): string | null {
+  const drawer = queryFirst('infoDrawer')
+  if (!drawer) return null
+  for (const el of drawer.querySelectorAll<HTMLElement>('span, div')) {
+    if (el.children.length > 0) continue
+    const text = (el.textContent ?? '').trim()
+    if (PHONE_LINE_RE.test(text)) {
+      const phone = phoneFromText(text)
+      if (phone) return phone
+    }
+  }
+  return null
+}
+
+/** O WhatsApp só reage a esta sequência completa de eventos, não a um .click() simples. */
+function realClick(el: HTMLElement) {
+  for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+    el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 }))
+  }
+}
+
+function closeInfoDrawer() {
+  const root: ParentNode = document.querySelector('[data-testid="drawer-right"]') ?? document
+  const btn = root.querySelector<HTMLElement>('button[aria-label="Fechar"], button[aria-label="Close"]')
+  if (btn) realClick(btn)
+}
+
+let phoneDetection: Promise<string | null> | null = null
+
+/** Descobre o telefone da conversa aberta. Retorna null em grupos ou quando o WhatsApp não mostra o número. */
+export function detectPhoneViaInfoPanel(): Promise<string | null> {
+  if (phoneDetection) return phoneDetection
+  phoneDetection = (async () => {
+    try {
+      const open = readPhoneFromInfoDrawer()
+      if (open) return open
+      if (queryFirst('infoDrawer')) return null            // painel aberto sem telefone (ex.: grupo)
+      const header = queryFirst('contactInfoHeader')
+      if (!header) return null
+      realClick(header)
+      const deadline = Date.now() + 3000
+      let phone: string | null = null
+      while (!phone && Date.now() < deadline) {
+        await sleep(100)
+        phone = readPhoneFromInfoDrawer()
+      }
+      closeInfoDrawer()                                     // devolve a tela ao estado original
+      return phone
+    } finally {
+      phoneDetection = null
+    }
+  })()
+  return phoneDetection
 }
 
 export type ComposeState =

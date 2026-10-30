@@ -23,7 +23,12 @@ export const SELECTORS = {
     'header span[title]',
   ],
   dialog: ['div[role="dialog"]', '[data-animate-modal-popup="true"]'],
-  messageWithJid: ['[data-id*="@c.us"]'],
+  messageWithJid: ['[data-id*="@c.us"]', '[data-id*="@s.whatsapp.net"]'],
+  contactInfoHeader: [
+    '#main [data-testid="conversation-info-header"]',
+    '#main header [role="button"][tabindex="0"]',
+  ],
+  infoDrawer: ['[data-testid="chat-info-drawer"]'],
   qrCode: [
     '[data-testid="qrcode"]',
     'canvas[aria-label*="QR" i]',

@@ -20,6 +20,9 @@ curl -fsSL https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-foll
 irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex
 ```
 
+> **Windows:** use o **PowerShell** (ícone azul). No Prompt de Comando (tela preta) o `irm` não existe; lá, use:
+> `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex"`
+
 O instalador baixa a versão mais recente, extrai em `~/UP-Followup` (Windows: `C:\Users\SEU_USUARIO\UP-Followup`), copia o caminho para a área de transferência e abre o `chrome://extensions`. Falta só:
 
 1. Ligar o **Modo do desenvolvedor** (canto superior direito).

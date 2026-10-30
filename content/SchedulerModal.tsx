@@ -14,6 +14,7 @@ import {
 } from '../src/ui'
 import { Icon } from '../src/icons'
 import type { CurrentContact } from './whatsapp-bridge'
+import { usePhoneDetection } from './usePhoneDetection'
 
 interface Props {
   contact: CurrentContact | null
@@ -23,6 +24,17 @@ interface Props {
 const chip: React.CSSProperties = {
   background: C.accentSoft, color: C.brand, border: `1px solid ${C.accentLine}`, borderRadius: R.pill,
   fontSize: '11.5px', fontWeight: 700, padding: '4px 11px', fontFamily: 'inherit',
+}
+
+function PhoneHint({ phone, detecting, failed, canDetect, onDetect }: { phone: string | null; detecting: boolean; failed: boolean; canDetect: boolean; onDetect: () => void }) {
+  if (detecting) return <span style={{ fontSize: '11px', fontWeight: 600, color: C.muted }}>Detectando o telefone no WhatsApp…</span>
+  if (phone) return <span style={{ fontSize: '11px', fontWeight: 600, color: C.ok }}>{formatPhone(phone)}</span>
+  return (
+    <span style={{ fontSize: '11px', fontWeight: 600, color: failed ? C.warn : C.muted }}>
+      {failed ? 'Não achei o telefone: digite com DDD. ' : 'DDD + número. '}
+      {canDetect && <button type="button" onClick={onDetect} style={{ background: 'none', border: 'none', padding: 0, color: C.brand, fontWeight: 800, textDecoration: 'underline', fontSize: '11px' }}>Detectar do WhatsApp</button>}
+    </span>
+  )
 }
 
 export function SchedulerModal({ contact, onClose }: Props) {
@@ -49,6 +61,7 @@ export function SchedulerModal({ contact, onClose }: Props) {
   }, [])
 
   const phone = normalizePhone(phoneRaw)
+  const detection = usePhoneDetection(contact, p => setPhoneRaw(cur => (cur.trim() ? cur : formatPhone(p))))
   const extras = useMemo(() => extraVariables(message), [message])
   const preview = useMemo(
     () => renderTemplate(message, { contactName: name, vars }),
@@ -119,9 +132,7 @@ export function SchedulerModal({ contact, onClose }: Props) {
             <label style={labelStyle}>
               Telefone
               <input style={inputStyle} value={phoneRaw} onChange={e => setPhoneRaw(e.target.value)} placeholder="(31) 99999-9999" />
-              <span style={{ fontSize: '11px', fontWeight: 600, color: phone ? C.ok : C.muted }}>
-                {phone ? formatPhone(phone) : 'DDD + número'}
-              </span>
+              <PhoneHint phone={phone} detecting={detection.detecting} failed={detection.failed} canDetect={!!contact} onDetect={detection.run} />
             </label>
           </div>
 
