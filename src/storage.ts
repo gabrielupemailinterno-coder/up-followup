@@ -331,7 +331,7 @@ export async function mergeCrmLeads(incoming: CrmLead[]): Promise<void> {
       stage: l.stage ?? old?.stage,
     })
   }
-  const all = [...byId.values()].sort((a, b) => b.syncedAt - a.syncedAt).slice(0, 5000)
+  const all = [...byId.values()].sort((a, b) => b.syncedAt - a.syncedAt).slice(0, 3000)
   await set(KEYS.CRM_LEADS, all)
 }
 

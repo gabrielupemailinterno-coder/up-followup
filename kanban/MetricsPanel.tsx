@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import type { KanbanCard, KanbanColumn, ScheduledMessage, SendEvent, Task } from '../src/types'
 import { getScheduledMessages, getSendHistory, getTasks, todayKey } from '../src/storage'
+import { watchStorage } from '../src/storageWatch'
 import { formatPhone } from '../src/phone'
 import { C, FONT, R, SHADOW } from '../src/theme'
 import { inputStyle } from '../src/ui'
@@ -21,8 +22,7 @@ export function MetricsPanel({ columns, cards }: { columns: KanbanColumn[]; card
       })
     }
     load()
-    chrome.storage.onChanged.addListener(load)
-    return () => chrome.storage.onChanged.removeListener(load)
+    return watchStorage(['wm_send_history', 'wm_scheduled_messages', 'wm_tasks'], load, 500)
   }, [])
 
   // Envios por dia (últimos 30, horário local)

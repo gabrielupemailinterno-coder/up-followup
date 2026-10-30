@@ -154,6 +154,11 @@ async function resyncAlarms() {
 }
 
 chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === CRM_KICK_ALARM) {
+    await kickCrmDriver()
+    return
+  }
+
   if (alarm.name === TICK_ALARM) {
     await recoverStaleSend()
     await tickCampaigns()
@@ -504,7 +509,9 @@ async function tickCampaigns() {
 // ─── CRM Incbook: fila de atividades ──────────────────────────────────────────
 
 const CRM_URL = 'https://crm.incbook.com.br'
-const CRM_IDLE_CLOSE_MS = 3 * 60_000
+const CRM_IDLE_CLOSE_MS = 90_000        // fecha a aba de trabalho logo depois de terminar
+const CRM_BATCH_MS = 60_000             // espera um pouco para agrupar vários registros numa só visita
+const CRM_KICK_ALARM = 'wm_crm_kick'
 
 interface CrmJobInput {
   phone: string
@@ -515,7 +522,7 @@ interface CrmJobInput {
 }
 
 /** Cria o job (com trava de duplicidade) e acorda a aba que opera o CRM. */
-async function enqueueCrmJob(input: CrmJobInput): Promise<Reply> {
+async function enqueueCrmJob(input: CrmJobInput, force = false): Promise<Reply> {
   const settings = await getSettings()
   const now = Date.now()
   const dedupeKey = makeDedupeKey(input.phone, input.activityType, input.comment, now)
@@ -542,8 +549,9 @@ async function enqueueCrmJob(input: CrmJobInput): Promise<Reply> {
     updatedAt: now,
   }
   await saveCrmJob(job)
-  await setCrmDiag({ at: now, phone: input.phone, result: 'queued', detail: settings.crmDryRun ? 'Na fila, em modo teste (não envia).' : 'Na fila para registrar no CRM.' })
-  await kickCrmDriver()
+  await setCrmDiag({ at: now, phone: input.phone, result: 'queued', detail: settings.crmDryRun ? 'Na fila, em modo teste (não envia). A aba do CRM abre em até 1 minuto.' : 'Na fila. A aba do CRM abre em até 1 minuto para registrar.' })
+  if (force) await kickCrmDriver(true)
+  else chrome.alarms.create(CRM_KICK_ALARM, { when: now + CRM_BATCH_MS + 1000 })
   return { ok: true }
 }
 
@@ -570,16 +578,35 @@ async function enqueueCrmActivity(p: { phone: string; contactName: string; text:
   }
 }
 
-/** Garante uma aba do CRM, só da extensão (fixada, em segundo plano), enquanto houver job a fazer. */
-async function kickCrmDriver() {
-  const pending = (await getCrmJobs()).some(j => j.status === 'pending' || j.status === 'running')
-  if (!pending) return
+let kicking: Promise<void> | null = null
+
+/**
+ * Garante uma aba do CRM, só da extensão (fixada, em segundo plano), enquanto houver job a fazer.
+ * Exclusão mútua (nunca cria duas abas ao mesmo tempo) e em lote: espera CRM_BATCH_MS desde o job
+ * mais antigo, para uma única visita registrar vários envios.
+ */
+function kickCrmDriver(force = false): Promise<void> {
+  if (kicking) return kicking
+  kicking = kickCrmDriverNow(force).finally(() => { kicking = null })
+  return kicking
+}
+
+async function kickCrmDriverNow(force: boolean) {
+  const open = (await getCrmJobs()).filter(j => j.status === 'pending' || j.status === 'running')
+  if (open.length === 0) return
+
   const id = await getCrmDriverTab()
   if (id !== null) {
     try {
       const tab = await chrome.tabs.get(id)
-      if (tab.url?.startsWith(CRM_URL)) return
+      const url = tab.url || tab.pendingUrl || ''
+      if (!url || url.startsWith(CRM_URL)) return   // já existe (ou ainda carregando)
     } catch { /* aba não existe mais */ }
+  }
+
+  if (!force) {
+    const oldest = Math.min(...open.map(j => j.createdAt))
+    if (Date.now() - oldest < CRM_BATCH_MS) return
   }
   const tab = await chrome.tabs.create({ url: `${CRM_URL}/leads`, active: false, pinned: true })
   if (tab.id !== undefined) await setCrmDriverTab(tab.id)
@@ -697,19 +724,19 @@ async function handle(msg: BackgroundMessage, sender?: chrome.runtime.MessageSen
       return { ok: true, data: { driver: id !== null && sender?.tab?.id === id } }
     }
     case 'CRM_ENQUEUE':
-      return enqueueCrmJob({ ...msg.payload, source: 'manual' })
+      return enqueueCrmJob({ ...msg.payload, source: 'manual' }, true)
     case 'CRM_RETRY': {
       const settings = await getSettings()
       const job = await patchCrmJob(msg.payload.id, { status: 'pending', attempts: 0, message: undefined, dryRun: settings.crmDryRun })
       if (!job) return fail('NOT_FOUND', 'Registro não encontrado.')
-      await kickCrmDriver()
+      await kickCrmDriver(true)
       return { ok: true }
     }
     case 'CRM_DISCARD':
       await saveAllCrmJobs((await getCrmJobs()).filter(j => j.id !== msg.payload.id))
       return { ok: true }
     case 'CRM_KICK':
-      await kickCrmDriver()
+      await kickCrmDriver(true)
       return { ok: true }
   }
 }

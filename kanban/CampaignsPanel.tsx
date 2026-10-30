@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import type { Campaign, CampaignAudience, KanbanCard, KanbanColumn } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { deleteCampaign, getCampaigns, getSettings, saveCampaign } from '../src/storage'
+import { watchStorage } from '../src/storageWatch'
 import { MIN_VARIANTS, buildItems, campaignProgress, validateCampaign } from '../src/campaign'
 import { extraVariables, renderTemplate } from '../src/templates'
 import { formatPhone } from '../src/phone'
@@ -29,8 +30,7 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
   useEffect(() => {
     const load = () => { void getCampaigns().then(list => setCampaigns([...list].sort((a, b) => b.createdAt - a.createdAt))) }
     load()
-    chrome.storage.onChanged.addListener(load)
-    return () => chrome.storage.onChanged.removeListener(load)
+    return watchStorage(['wm_campaigns'], load, 200)
   }, [])
 
   async function act(promise: Promise<{ ok: boolean; message?: string }>, okMessage?: string) {

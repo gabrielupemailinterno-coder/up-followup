@@ -5,7 +5,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Template } from '../src/types'
-import { getTemplates } from '../src/storage'
+import { getTemplates, STORAGE_KEYS as K } from '../src/storage'
+import { watchStorage } from '../src/storageWatch'
 import { renderTemplate } from '../src/templates'
 import { C, FONT, R, SHADOW } from '../src/theme'
 import { Icon } from '../src/icons'
@@ -22,8 +23,7 @@ export function QuickReplies({ getContact }: { getContact: () => CurrentContact 
   useEffect(() => {
     const load = () => { void getTemplates().then(setTemplates) }
     load()
-    chrome.storage.onChanged.addListener(load)
-    return () => chrome.storage.onChanged.removeListener(load)
+    return watchStorage([K.TEMPLATES], load, 400)
   }, [])
 
   const matches = useMemo(() => {

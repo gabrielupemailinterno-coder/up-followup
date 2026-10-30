@@ -6,7 +6,7 @@
  *     como uma pessoa faria, em modo teste ou de verdade conforme a configuração.
  */
 
-import type { CrmJob } from '../src/types'
+import type { CrmJob, CrmLead } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { getCrmJobs, getSettings, mergeCrmLeads, patchCrmJob } from '../src/storage'
 import { runJobStep } from '../src/crmDriver'
@@ -18,20 +18,39 @@ const RUNNING_TIMEOUT_MS = 4 * 60_000
 // ─── Leitor ───────────────────────────────────────────────────────────────────
 
 function startReader() {
+  // Leve de propósito: só lê com a aba visível, a cada 8 s, e grava no storage no máximo a cada 30 s.
+  let enabled = false
+  const refreshEnabled = () => { void getSettings().then(st => { enabled = st.crmEnabled }) }
+  refreshEnabled()
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && 'wm_settings' in changes) refreshEnabled()
+  })
+
   let lastSig = ''
-  const tick = async () => {
-    // Só guarda leads se a função de CRM estiver ligada em Configurações.
-    if (!(await getSettings()).crmEnabled) return
+  let lastFlush = 0
+  const pending = new Map<string, CrmLead>()
+
+  const tick = () => {
+    if (!enabled || document.hidden) return
     const path = location.pathname
-    const leads = path.startsWith('/leads') ? leadsFromLeadsPage() : path.startsWith('/funil') ? leadsFromFunilPage() : []
+    if (!path.startsWith('/leads') && !path.startsWith('/funil')) return
+    const leads = path.startsWith('/leads') ? leadsFromLeadsPage() : leadsFromFunilPage()
+    if (leads.length === 0) return
     const sig = leads.map(l => `${l.id}:${l.stage?.lastInteractionAt ?? ''}`).join(',')
-    if (leads.length > 0 && sig !== lastSig) {
-      lastSig = sig
-      void mergeCrmLeads(leads)
-    }
+    if (sig === lastSig) return
+    lastSig = sig
+    for (const l of leads) pending.set(l.id, l)
   }
-  void tick()
-  setInterval(() => { void tick() }, 4000)
+
+  const flush = () => {
+    if (pending.size === 0 || Date.now() - lastFlush < 30_000) return
+    const batch = [...pending.values()]
+    pending.clear()
+    lastFlush = Date.now()
+    void mergeCrmLeads(batch)
+  }
+
+  setInterval(() => { tick(); flush() }, 8000)
 }
 
 // ─── Executor ─────────────────────────────────────────────────────────────────

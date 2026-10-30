@@ -5,7 +5,8 @@
 import React, { useEffect, useState } from 'react'
 import type { Campaign } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { getCampaigns } from '../src/storage'
+import { getCampaigns, STORAGE_KEYS as K } from '../src/storage'
+import { watchStorage } from '../src/storageWatch'
 import { campaignProgress } from '../src/campaign'
 import { C, FONT, R, SHADOW } from '../src/theme'
 import { Icon, type IconName } from '../src/icons'
@@ -18,16 +19,21 @@ export function CampaignBar() {
   useEffect(() => {
     const load = () => { void getCampaigns().then(setCampaigns) }
     load()
-    chrome.storage.onChanged.addListener(load)
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => {
-      chrome.storage.onChanged.removeListener(load)
-      clearInterval(t)
-    }
+    const stop = watchStorage([K.CAMPAIGNS], load, 150)
+    // o contador regressivo só precisa rodar enquanto há campanha ativa (veja abaixo)
+    return stop
   }, [])
 
   const active = campaigns.filter(c => c.status === 'running' || c.status === 'paused')
-  if (active.length === 0) return null
+  const hasActive = active.length > 0
+
+  useEffect(() => {
+    if (!hasActive) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [hasActive])
+
+  if (!hasActive) return null
 
   return (
     <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999, display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: FONT }}>

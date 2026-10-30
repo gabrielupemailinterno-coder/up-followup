@@ -8,7 +8,8 @@ import { createRoot } from 'react-dom/client'
 import React from 'react'
 import type { ActiveSend } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { getScheduledMessages, getTasks } from '../src/storage'
+import { getScheduledMessages, getTasks, STORAGE_KEYS as K } from '../src/storage'
+import { watchStorage } from '../src/storageWatch'
 import { BASE_CSS, C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { Icon, type IconName } from '../src/icons'
 import { SchedulerModal } from './SchedulerModal'
@@ -61,12 +62,13 @@ function FloatingApp() {
   // Conversa aberta
   React.useEffect(() => {
     const read = () => {
+      if (document.hidden) return // aba em segundo plano: não precisa acompanhar a conversa
       const c = getCurrentContact()
       contactRef.current = c
       setContact(prev => (prev?.name === c?.name && prev?.phone === c?.phone ? prev : c))
     }
     read()
-    const interval = setInterval(read, 1500)
+    const interval = setInterval(read, 2500)
     return () => clearInterval(interval)
   }, [])
 
@@ -81,9 +83,9 @@ function FloatingApp() {
       )
     }
     void load()
-    chrome.storage.onChanged.addListener(load)
-    const t = setInterval(load, 30_000)
-    return () => { chrome.storage.onChanged.removeListener(load); clearInterval(t) }
+    const stop = watchStorage([K.SCHEDULED, K.TASKS], () => { void load() }, 800)
+    const t = setInterval(() => { if (!document.hidden) void load() }, 60_000)
+    return () => { stop(); clearInterval(t) }
   }, [])
 
   function toggleDock(next: boolean) {

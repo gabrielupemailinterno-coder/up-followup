@@ -5,6 +5,7 @@ import {
   ensureSchema, getKanbanCards, getScheduledMessages, getSettings, getTasks, getTodayLog, getCrmJobs, getCrmLeads, getCrmDiag,
 } from '../src/storage'
 import { findStaleLeads } from '../src/crm'
+import { watchStorage } from '../src/storageWatch'
 import { formatPhone } from '../src/phone'
 import { C, FONT, R, SHADOW } from '../src/theme'
 import { errorStyle, inputStyle, quickTimes, toLocalInput } from '../src/ui'
@@ -63,9 +64,10 @@ export default function PopupApp() {
 
   useEffect(() => {
     void load()
-    const onChange = () => { void load() }
-    chrome.storage.onChanged.addListener(onChange)
-    return () => chrome.storage.onChanged.removeListener(onChange)
+    return watchStorage(
+      ['wm_scheduled_messages', 'wm_tasks', 'wm_send_log', 'wm_settings', 'wm_kanban_cards', 'wm_crm_jobs', 'wm_crm_leads', 'wm_crm_diag', HIDE_KEY],
+      () => { void load() }, 300
+    )
   }, [load])
 
   async function act(promise: Promise<{ ok: boolean; message?: string }>) {

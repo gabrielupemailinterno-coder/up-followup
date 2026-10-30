@@ -19,14 +19,11 @@ export function getCurrentContact(): CurrentContact | null {
   if (!name) return null
 
   // Contato não salvo: o título já é o número.
-  let phone = phoneFromText(name) ?? undefined
+  const phone = phoneFromText(name) ?? undefined
 
-  // Conversas 1:1 trazem o JID nas mensagens: data-id="true_5531999999999@c.us_ABC…"
-  if (!phone) {
-    const msg = queryFirst('messageWithJid', document.querySelector('#main') ?? document)
-    const m = msg?.getAttribute('data-id')?.match(/_(\d{10,15})@(?:c\.us|s\.whatsapp\.net)/)
-    if (m) phone = m[1]
-  }
+  // Antes o telefone vinha no data-id das mensagens; hoje elas só têm um código hexadecimal, e varrer
+  // todas as mensagens a cada ciclo era custo à toa. O telefone sai do painel "Dados do contato"
+  // (detectPhoneViaInfoPanel), acionado só quando o usuário precisa.
   return { name, phone }
 }
 

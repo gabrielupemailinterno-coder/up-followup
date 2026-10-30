@@ -8,8 +8,10 @@ import type { CrmJob, CrmLead, KanbanCard, KanbanColumn, ScheduledMessage, Task 
 import { sendToBackground } from '../src/types'
 import {
   applyColumnChange, getCrmJobs, getCrmLeads, getKanbanCards, getKanbanColumns, getScheduledMessages, getSettings, getTasks, saveKanbanCard,
+  STORAGE_KEYS as K,
 } from '../src/storage'
 import { CRM_ACTIVITY_TYPES, matchLeadByPhone } from '../src/crm'
+import { watchStorage } from '../src/storageWatch'
 import { formatPhone } from '../src/phone'
 import { C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { errorStyle, ghostBtn, inputStyle, primaryBtn, toLocalInput, quickTimes } from '../src/ui'
@@ -75,9 +77,7 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
 
   useEffect(() => {
     void load()
-    const onChange = () => { void load() }
-    chrome.storage.onChanged.addListener(onChange)
-    return () => chrome.storage.onChanged.removeListener(onChange)
+    return watchStorage([K.KANBAN_CARDS, K.KANBAN_COLUMNS, K.SCHEDULED, K.TASKS, K.CRM_LEADS, K.CRM_JOBS], () => { void load() }, 600)
   }, [load])
 
   // Sem telefone e sem card: tenta descobrir o número uma vez por conversa (pelo painel "Dados do contato").
