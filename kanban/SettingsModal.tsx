@@ -51,7 +51,7 @@ export function SettingsModal({
     await saveTemplates(cleaned)
     setTemplates(cleaned)
     await sendToBackground({ type: 'RESYNC_ALARMS' })
-    toast('Configurações salvas.')
+    toast(settings.crmEnabled ? (settings.crmDryRun ? 'Configurações salvas. CRM: ligado em modo teste.' : 'Configurações salvas. CRM: ligado, registra de verdade.') : 'Configurações salvas. CRM: desligado.')
   }
 
   async function exportJson() {

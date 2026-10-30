@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import type { CrmJob, CrmLead, ScheduledMessage, Task } from '../src/types'
+import type { CrmDiag, CrmJob, CrmLead, ScheduledMessage, Task } from '../src/types'
 import { sendToBackground } from '../src/types'
 import {
-  ensureSchema, getKanbanCards, getScheduledMessages, getSettings, getTasks, getTodayLog, getCrmJobs, getCrmLeads,
+  ensureSchema, getKanbanCards, getScheduledMessages, getSettings, getTasks, getTodayLog, getCrmJobs, getCrmLeads, getCrmDiag,
 } from '../src/storage'
 import { findStaleLeads } from '../src/crm'
 import { formatPhone } from '../src/phone'
@@ -34,6 +34,7 @@ export default function PopupApp() {
   const [crmJobs, setCrmJobs] = useState<CrmJob[]>([])
   const [crmLeads, setCrmLeads] = useState<CrmLead[]>([])
   const [crmCfg, setCrmCfg] = useState({ enabled: false, dryRun: true })
+  const [crmDiag, setCrmDiag] = useState<CrmDiag | null>(null)
   const [hideOnboarding, setHideOnboarding] = useState(true)
   const [tab, setTab] = useState<Tab | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -41,12 +42,13 @@ export default function PopupApp() {
 
   const load = useCallback(async () => {
     await ensureSchema()
-    const [msgs, log, settings, allTasks, cards, tabs, hidden, jobs, leads] = await Promise.all([
+    const [msgs, log, settings, allTasks, cards, tabs, hidden, jobs, leads, diag] = await Promise.all([
       getScheduledMessages(), getTodayLog(), getSettings(), getTasks(), getKanbanCards(),
       chrome.tabs.query({ url: 'https://web.whatsapp.com/*' }),
       chrome.storage.local.get(HIDE_KEY),
-      getCrmJobs(), getCrmLeads(),
+      getCrmJobs(), getCrmLeads(), getCrmDiag(),
     ])
+    setCrmDiag(diag)
     setCrmJobs([...jobs].sort((a, b) => b.createdAt - a.createdAt).slice(0, 40))
     setCrmLeads(leads)
     setCrmCfg({ enabled: settings.crmEnabled, dryRun: settings.crmDryRun })
@@ -204,7 +206,7 @@ export default function PopupApp() {
         )}
 
         {activeTab === 'crm' && (
-          <CrmTab jobs={crmJobs} leads={crmLeads} cfg={crmCfg} now={now} act={act} />
+          <CrmTab jobs={crmJobs} leads={crmLeads} cfg={crmCfg} diag={crmDiag} now={now} act={act} />
         )}
 
         {activeTab === 'history' && (
@@ -452,11 +454,12 @@ const CRM_STATUS: Record<CrmJob['status'], { label: string; fg: string; bg: stri
 }
 
 function CrmTab({
-  jobs, leads, cfg, now, act,
+  jobs, leads, cfg, diag, now, act,
 }: {
   jobs: CrmJob[]
   leads: CrmLead[]
   cfg: { enabled: boolean; dryRun: boolean }
+  diag: CrmDiag | null
   now: number
   act: (p: Promise<{ ok: boolean; message?: string }>) => void
 }) {
@@ -477,6 +480,13 @@ function CrmTab({
           <strong>Modo teste.</strong> A extensão preenche o formulário do CRM, mas <strong>não envia</strong>. Valide em um lead de teste e depois desligue em Configurações.
         </div>
       ) : null}
+
+      <div style={{ ...card, fontSize: '12px', lineHeight: 1.45, color: C.inkSoft }}>
+        <strong>Último envio:</strong>{' '}
+        {diag
+          ? <>{new Date(diag.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {formatPhone(diag.phone)}<br /><span style={{ color: diag.result === 'error' || diag.result === 'disabled' ? C.danger : C.muted, fontWeight: 600 }}>{diag.detail}</span></>
+          : <span style={{ color: C.muted }}>nenhum envio visto ainda por esta versão da extensão.</span>}
+      </div>
 
       <GroupLabel>Atividades no CRM</GroupLabel>
       {jobs.length === 0 && <Empty icon="list" title="Nada na fila do CRM" text="Depois de cada envio, a atividade aparece aqui com o resultado." />}

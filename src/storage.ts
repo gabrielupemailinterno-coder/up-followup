@@ -1,6 +1,6 @@
 import type {
   ScheduledMessage, KanbanCard, KanbanColumn, AppSettings, Template, SendLog, ActiveSend,
-  Campaign, Task, SendEvent, SendSource, CrmLead, CrmJob,
+  Campaign, Task, SendEvent, SendSource, CrmLead, CrmJob, CrmDiag,
 } from './types'
 import { SCHEMA_VERSION } from './types'
 import { DEFAULT_TEMPLATES } from './templates'
@@ -47,6 +47,7 @@ const KEYS = {
   CRM_LEADS: 'wm_crm_leads',
   CRM_JOBS: 'wm_crm_jobs',
   CRM_DRIVER_TAB: 'wm_crm_driver_tab',
+  CRM_DIAG: 'wm_crm_diag',
 }
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
@@ -367,6 +368,14 @@ export async function getCrmDriverTab(): Promise<number | null> {
 export async function setCrmDriverTab(id: number | null): Promise<void> {
   if (id === null) await chrome.storage.local.remove(KEYS.CRM_DRIVER_TAB)
   else await set(KEYS.CRM_DRIVER_TAB, id)
+}
+
+export async function getCrmDiag(): Promise<CrmDiag | null> {
+  return get<CrmDiag | null>(KEYS.CRM_DIAG, null)
+}
+
+export async function setCrmDiag(d: CrmDiag): Promise<void> {
+  await set(KEYS.CRM_DIAG, d)
 }
 
 export const STORAGE_KEYS = KEYS

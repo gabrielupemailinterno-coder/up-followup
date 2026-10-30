@@ -181,6 +181,14 @@ export interface CrmJob {
   updatedAt: number
 }
 
+/** Resultado da última tentativa de enfileirar uma atividade do CRM (para explicar o que aconteceu). */
+export interface CrmDiag {
+  at: number
+  phone: string
+  result: 'disabled' | 'queued' | 'duplicate' | 'error'
+  detail?: string
+}
+
 export interface BackupFile {
   app: 'whatsapp-web-mod'
   schemaVersion: number

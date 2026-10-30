@@ -37,6 +37,7 @@ import {
   saveAllCrmJobs,
   getCrmDriverTab,
   setCrmDriverTab,
+  setCrmDiag,
 } from '../src/storage'
 import {
   buildActivityComment, isDuplicate, makeDedupeKey, matchLeadByPhone, pickActivityType,
@@ -518,7 +519,10 @@ async function enqueueCrmJob(input: CrmJobInput): Promise<Reply> {
   const settings = await getSettings()
   const now = Date.now()
   const dedupeKey = makeDedupeKey(input.phone, input.activityType, input.comment, now)
-  if (isDuplicate(await getCrmJobs(), dedupeKey)) return { ok: true, data: 'duplicate' }
+  if (isDuplicate(await getCrmJobs(), dedupeKey)) {
+    await setCrmDiag({ at: now, phone: input.phone, result: 'duplicate', detail: 'Esta atividade já foi registrada hoje para este telefone.' })
+    return { ok: true, data: 'duplicate' }
+  }
 
   const match = matchLeadByPhone(await getCrmLeads(), input.phone)
   const job: CrmJob = {
@@ -538,6 +542,7 @@ async function enqueueCrmJob(input: CrmJobInput): Promise<Reply> {
     updatedAt: now,
   }
   await saveCrmJob(job)
+  await setCrmDiag({ at: now, phone: input.phone, result: 'queued', detail: settings.crmDryRun ? 'Na fila, em modo teste (não envia).' : 'Na fila para registrar no CRM.' })
   await kickCrmDriver()
   return { ok: true }
 }
@@ -546,7 +551,10 @@ async function enqueueCrmJob(input: CrmJobInput): Promise<Reply> {
 async function enqueueCrmActivity(p: { phone: string; contactName: string; text: string; source: 'schedule' | 'campaign' }) {
   try {
     const settings = await getSettings()
-    if (!settings.crmEnabled) return
+    if (!settings.crmEnabled) {
+      await setCrmDiag({ at: Date.now(), phone: p.phone, result: 'disabled', detail: 'O registro no CRM está desligado, então nada foi registrado. Ligue em Configurações > CRM Incbook e clique em Salvar.' })
+      return
+    }
     // o envio atual já está no histórico: anteriores = total - 1
     const prior = (await getSendHistory()).filter(e => e.phone === p.phone).length - 1
     await enqueueCrmJob({
@@ -558,6 +566,7 @@ async function enqueueCrmActivity(p: { phone: string; contactName: string; text:
     })
   } catch (err) {
     console.warn('[WM] falha ao enfileirar atividade do CRM', err)
+    await setCrmDiag({ at: Date.now(), phone: p.phone, result: 'error', detail: `Erro ao enfileirar: ${String(err)}` }).catch(() => {})
   }
 }
 
