@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual do Follow-up UP</title>
+  <link rel="icon" type="image/png" href="../brand/icon32.png" />
+  <link rel="stylesheet" href="manual.css" />
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" aria-label="Sumário">
+    <div class="brand">
+      <img src="../brand/logo-up-verde.png" alt="UP" />
+      <span>Manual do<br/>Follow-up</span>
+    </div>
+    <ul class="toc">
+      <li><a href="#inicio">Início</a></li>
+      <li class="group">Parte 1</li>
+      <li><a href="#instalacao">Instalação</a></li>
+      <li class="sub"><a href="#instalar-rapido">Instalação rápida (terminal)</a></li>
+      <li class="sub"><a href="#instalar-passos">Instalação manual (ZIP)</a></li>
+      <li class="sub"><a href="#instalar-problemas">Problemas na instalação</a></li>
+      <li class="sub"><a href="#atualizar">Atualizar e remover</a></li>
+      <li><a href="#primeiros-passos">Primeiros passos</a></li>
+      <li class="group">Parte 2</li>
+      <li><a href="#uso">Como usar</a></li>
+      <li class="sub"><a href="#menu-up">Menu UP no WhatsApp</a></li>
+      <li class="sub"><a href="#salvar-contato">Salvar contato</a></li>
+      <li class="sub"><a href="#agendar">Agendar follow-up</a></li>
+      <li class="sub"><a href="#painel-contato">Painel do contato</a></li>
+      <li class="sub"><a href="#respostas-rapidas">Respostas rápidas</a></li>
+      <li class="sub"><a href="#tarefas">Tarefas</a></li>
+      <li class="sub"><a href="#kanban">Kanban</a></li>
+      <li class="sub"><a href="#campanhas">Campanhas</a></li>
+      <li class="sub"><a href="#metricas">Métricas</a></li>
+      <li class="sub"><a href="#config">Configurações e backup</a></li>
+      <li class="sub"><a href="#popup">Ícone da extensão</a></li>
+      <li class="group">Apoio</li>
+      <li><a href="#regras">Boas práticas</a></li>
+      <li><a href="#faq">Problemas comuns</a></li>
+      <li><a href="#cola">Cola rápida</a></li>
+    </ul>
+  </aside>
+
+  <main>
+    <!-- CAPA -->
+    <header class="cover" id="inicio">
+      <img class="logo" src="../brand/logo-completo-offwhite.png" alt="UP consultoria imobiliária" />
+      <div class="eyebrow">Ferramenta de uso exclusivo da equipe</div>
+      <h1>Manual do Follow-up UP para WhatsApp Web</h1>
+      <p class="lead">Como instalar e como usar a extensão que organiza seus leads, agenda follow-ups e mantém sua rotina comercial em dia.</p>
+      <div class="meta">
+        <span>Versão <b data-version>1.4.0</b></span>
+        <span>Atualizado em 30/10/2026</span>
+        <span>Chrome e Edge</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <section class="chapter">
+        <div class="kicker">Visão geral</div>
+        <h2>O que a extensão faz</h2>
+        <p>O Follow-up UP aparece dentro do próprio WhatsApp Web, no seu computador. Ele não troca de conta nem acessa o celular: usa a <strong>sua</strong> conta conectada, e os dados dos seus leads ficam guardados <strong>apenas no seu navegador</strong>.</p>
+
+        <div class="grid cols-3">
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="3.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg></div><h4>Agenda follow-ups</h4><p>Programe mensagens por telefone, com templates, recorrência e envio automático.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 7.5v8M12 7.5v11M16 7.5v5"/></svg></div><h4>Kanban de leads</h4><p>Funil visual com etapas que você mesmo cria, tags, notas e tempo parado.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/></svg></div><h4>Painel do contato</h4><p>Veja e edite etapa, tags, notas e tarefas sem sair da conversa.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.5L4.5 14H11l-1 7.5L19.5 10H13l0-7.5z"/></svg></div><h4>Respostas rápidas</h4><p>Digite <span class="kbd">/</span> e insira seus templates com as variáveis preenchidas.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5v3a1 1 0 0 0 1 1h2.5l5.5 4v-13l-5.5 4H4a1 1 0 0 0-1 1zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></div><h4>Campanhas</h4><p>Disparo com variações de texto e intervalos aleatórios, com travas de segurança.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20v-7M12 20V5M18 20v-10M3 20.5h18"/></svg></div><h4>Métricas</h4><p>Envios por dia, follow-ups concluídos e leads que estão parados.</p></div>
+        </div>
+
+        <h3>O que você precisa</h3>
+        <ul>
+          <li>Computador com <strong>Windows ou Mac</strong> (a extensão não funciona no celular).</li>
+          <li><strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong> atualizado.</li>
+          <li>Acesso à internet e ao Terminal (Mac) ou PowerShell (Windows) para a instalação rápida, <strong>ou</strong> o arquivo <code>up-followup.zip</code> enviado pelo gestor.</li>
+          <li>WhatsApp no celular, para conectar o WhatsApp Web lendo o QR code.</li>
+        </ul>
+
+        <div class="callout danger">
+          <div><b class="h">Uso exclusivo da UP</b>
+          <p>Esta ferramenta é de uso interno. Não compartilhe o arquivo de instalação nem prints com dados de clientes fora da equipe, e siga a política de privacidade da empresa ao tratar informações dos leads.</p></div>
+        </div>
+      </section>
+
+      <!-- PARTE 1 -->
+      <section class="chapter" id="instalacao">
+        <div class="kicker">Parte 1</div>
+        <h2>Instalação</h2>
+        <p>A instalação leva cerca de 5 minutos e é feita uma única vez por computador. Há dois caminhos: a <strong>instalação rápida pelo terminal</strong> (recomendada, um comando só) e a <strong>instalação manual por ZIP</strong>.</p>
+
+        <h3 id="instalar-rapido">Instalação rápida pelo terminal (recomendada)</h3>
+        <p>O instalador baixa a versão mais recente, coloca a extensão na pasta <code>UP-Followup</code> do seu usuário, copia o caminho dela para a área de transferência e abre a página de extensões do Chrome. Você não precisa instalar nada além do navegador.</p>
+
+        <div>
+          <div class="tabs" data-tabs role="tablist" aria-label="Sistema">
+            <button role="tab" data-os="mac" aria-controls="t-mac" aria-selected="false">Mac</button>
+            <button role="tab" data-os="win" aria-controls="t-win" aria-selected="true">Windows</button>
+          </div>
+          <div class="tabpanel" role="tabpanel" id="t-mac" data-title="Mac" hidden>
+            <ol>
+              <li>Pressione <span class="kbd">⌘</span> + <span class="kbd">Espaço</span>, digite <strong>Terminal</strong> e pressione <span class="kbd">Enter</span>.</li>
+              <li>Copie o comando abaixo, cole no Terminal (<span class="kbd">⌘</span> + <span class="kbd">V</span>) e pressione <span class="kbd">Enter</span>:</li>
+            </ol>
+            <div class="cmd"><span>curl -fsSL https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.sh | bash</span><button type="button">Copiar</button></div>
+            <p>A extensão fica em <code>/Users/SEU_USUARIO/UP-Followup</code>.</p>
+          </div>
+          <div class="tabpanel" role="tabpanel" id="t-win" data-title="Windows">
+            <ol>
+              <li>Clique no menu Iniciar, digite <strong>PowerShell</strong> e abra o <em>Windows PowerShell</em>.</li>
+              <li>Copie o comando abaixo, cole na janela (clique com o botão direito) e pressione <span class="kbd">Enter</span>:</li>
+            </ol>
+            <div class="cmd"><span>irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex</span><button type="button">Copiar</button></div>
+            <p>A extensão fica em <code>C:\Users\SEU_USUARIO\UP-Followup</code>.</p>
+          </div>
+        </div>
+
+        <p>Quando o comando terminar, ele mostra os passos finais. Faltam só 3 ações no navegador:</p>
+        <ol class="steps">
+          <li><strong class="t">Ligue o “Modo do desenvolvedor”</strong><p>Na página <code>chrome://extensions</code> que o instalador abriu (no Edge: <code>edge://extensions</code>), ligue a chave no <strong>canto superior direito</strong> (no Edge, fica no menu lateral esquerdo).</p></li>
+          <li><strong class="t">Carregue a pasta da extensão</strong><p>Clique em <span class="ui ghost">Carregar sem compactação</span> e escolha a pasta <code>UP-Followup</code>. O caminho já está na sua área de transferência: cole-o na barra de endereços da janela de seleção, se ajudar. Escolha a pasta que contém diretamente o arquivo <code>manifest.json</code>.</p></li>
+          <li><strong class="t">Abra o WhatsApp Web e conecte sua conta</strong><p>Acesse <a href="https://web.whatsapp.com" target="_blank" rel="noopener">web.whatsapp.com</a> e leia o QR code com o celular. Quando a conversa carregar, a aba verde com o logo <strong>UP</strong> aparece na lateral direita.</p></li>
+        </ol>
+        <p>Dica: fixe a extensão na barra do navegador (ícone de quebra-cabeça &gt; alfinete) e permita as notificações do navegador (veja o passo 8 da instalação manual).</p>
+        <div class="callout info"><div><b class="h">Se o comando não funcionar</b><p>Confira a conexão com a internet e tente de novo. Se aparecer “não é possível carregar o arquivo” no Windows, abra o PowerShell normalmente (sem “executar como administrador”). Em última instância, use a instalação manual abaixo.</p></div></div>
+
+        <h3 id="instalar-passos">Instalação manual por ZIP (sem terminal)</h3>
+
+        <ol class="steps">
+          <li><strong class="t">Guarde o arquivo ZIP</strong>
+            <p>Salve o arquivo <code>whatsapp-web-mod-vX.Y.Z.zip</code> que o gestor enviou, por exemplo na pasta Downloads.</p></li>
+
+          <li><strong class="t">Extraia o ZIP em uma pasta definitiva</strong>
+            <p>Escolha um lugar que você <strong>não vai mover nem apagar</strong>. Sugestão: <code>Documentos\UP-Followup</code>.</p>
+            <div class="tabs" data-tabs role="tablist" aria-label="Sistema">
+              <button role="tab" data-os="win" aria-controls="p-win" aria-selected="true">Windows</button>
+              <button role="tab" data-os="mac" aria-controls="p-mac" aria-selected="false">Mac</button>
+            </div>
+            <div class="tabpanel" role="tabpanel" id="p-win" data-title="Windows">
+              <ol>
+                <li>Clique com o botão direito no arquivo ZIP.</li>
+                <li>Escolha <strong>Extrair tudo…</strong>.</li>
+                <li>Em <em>Procurar</em>, selecione <code>Documentos\UP-Followup</code> e confirme.</li>
+              </ol>
+            </div>
+            <div class="tabpanel" role="tabpanel" id="p-mac" data-title="Mac" hidden>
+              <ol>
+                <li>Mova o ZIP para <code>Documentos/UP-Followup</code>.</li>
+                <li>Dê dois cliques no arquivo: o Mac cria uma pasta com o mesmo nome.</li>
+              </ol>
+            </div>
+          </li>
+
+          <li><strong class="t">Abra a página de extensões do navegador</strong>
+            <p>Copie o endereço abaixo, cole na barra de endereços e pressione <span class="kbd">Enter</span>. (Navegadores não abrem esse endereço por link.)</p>
+            <div class="cmd"><span>chrome://extensions</span><button type="button">Copiar</button></div>
+            <p>No <strong>Microsoft Edge</strong>, use <code>edge://extensions</code>.</p></li>
+
+          <li><strong class="t">Ligue o “Modo do desenvolvedor”</strong>
+            <p>No Chrome, a chave fica no <strong>canto superior direito</strong> da página. No Edge, fica no menu lateral esquerdo. Ela precisa ficar ligada.</p></li>
+
+          <li><strong class="t">Carregue a pasta da extensão</strong>
+            <p>Clique em <span class="ui ghost">Carregar sem compactação</span> (no Edge: <em>Carregar descompactada</em>) e selecione a pasta que você extraiu.</p>
+            <div class="callout warn"><div><b class="h">Atenção</b><p>Selecione a pasta que contém diretamente o arquivo <code>manifest.json</code>. Se aparecer o erro “arquivo de manifesto ausente”, você escolheu uma pasta acima ou abaixo. Entre na pasta até ver o <code>manifest.json</code> e selecione essa.</p></div></div>
+            <p>A extensão <strong>WhatsApp Web Mod</strong> vai aparecer na lista, ativada, com o ícone verde “UP”.</p></li>
+
+          <li><strong class="t">Fixe a extensão na barra do navegador</strong>
+            <p>Clique no ícone de peça de quebra-cabeça, ao lado da barra de endereços, e no alfinete ao lado de <strong>WhatsApp Web Mod</strong>. Assim o ícone UP fica sempre visível.</p></li>
+
+          <li><strong class="t">Abra o WhatsApp Web e conecte sua conta</strong>
+            <p>Acesse <a href="https://web.whatsapp.com" target="_blank" rel="noopener">web.whatsapp.com</a>. No celular: WhatsApp &gt; <em>Aparelhos conectados</em> &gt; <em>Conectar um aparelho</em> e leia o QR code. Use sempre <strong>a sua conta</strong>.</p>
+            <p>Quando a conversa carregar, uma aba verde com o logo <strong>UP</strong> aparece na lateral direita da tela. Isso confirma que deu certo.</p></li>
+
+          <li><strong class="t">Permita as notificações</strong>
+            <p>O Follow-up avisa na hora dos envios e das tarefas. Se o sistema perguntar, permita as notificações do navegador. Se não aparecerem depois:</p>
+            <ul>
+              <li><strong>Windows:</strong> Configurações &gt; Sistema &gt; Notificações &gt; ative para Google Chrome (ou Edge).</li>
+              <li><strong>Mac:</strong> Ajustes do Sistema &gt; Notificações &gt; Google Chrome &gt; permitir.</li>
+            </ul></li>
+        </ol>
+
+        <div class="callout tip"><div><b class="h">Dica</b><p>Ao instalar pela primeira vez, este manual abre sozinho. Depois, você o encontra no ícone UP (símbolo de livro), no menu UP do WhatsApp Web e no Kanban.</p></div></div>
+
+        <h3 id="instalar-problemas">Problemas na instalação</h3>
+        <div class="qa"><h4>“Arquivo de manifesto ausente ou ilegível”</h4><p>Você selecionou a pasta errada. Repita o passo 5 e escolha a pasta onde está o arquivo <code>manifest.json</code>.</p></div>
+        <div class="qa"><h4>Não encontro a chave “Modo do desenvolvedor”</h4><p>Ela fica no canto superior direito da página <code>chrome://extensions</code>. Se sua máquina é gerenciada pela empresa e a opção não aparece, fale com o gestor.</p></div>
+        <div class="qa"><h4>O Chrome avisa sobre extensões do modo desenvolvedor</h4><p>Em alguns computadores o Chrome mostra esse aviso ao abrir. Feche a mensagem e <strong>mantenha a extensão ativada</strong>. Ela é a ferramenta oficial da equipe.</p></div>
+        <div class="qa"><h4>A extensão sumiu ou aparece com erro</h4><p>A pasta onde ela foi extraída foi movida ou apagada. Extraia o ZIP de novo em uma pasta definitiva e repita os passos 3 a 5. Seus dados continuam no navegador, a menos que você tenha removido a extensão.</p></div>
+        <div class="qa"><h4>O menu UP não aparece no WhatsApp Web</h4><p>Atualize a página com <span class="kbd">F5</span>. Confirme em <code>chrome://extensions</code> que a extensão está ligada. Se continuar, avise o gestor informando a versão.</p></div>
+
+        <h3 id="atualizar">Atualizar e remover</h3>
+        <h4>Para atualizar para uma versão nova</h4>
+        <p><strong>Pelo terminal (mais fácil):</strong> rode <strong>o mesmo comando da instalação rápida</strong> de novo. Ele substitui os arquivos na pasta <code>UP-Followup</code>. Depois, em <code>chrome://extensions</code>, clique no botão de recarregar (seta circular) na extensão e atualize o WhatsApp Web com <span class="kbd">F5</span>. Seus dados são mantidos.</p>
+        <p><strong>Pelo ZIP:</strong></p>
+        <ol>
+          <li>Antes, faça um backup: ícone UP &gt; ícone de configurações &gt; <strong>Exportar backup (JSON)</strong>.</li>
+          <li>Extraia o novo ZIP <strong>na mesma pasta</strong>, substituindo os arquivos.</li>
+          <li>Em <code>chrome://extensions</code>, clique no botão de recarregar (seta circular) na extensão.</li>
+          <li>Atualize o WhatsApp Web com <span class="kbd">F5</span>. Seus dados são mantidos.</li>
+        </ol>
+        <div class="callout danger"><div><b class="h">Cuidado ao remover</b><p>Se você clicar em <strong>Remover</strong> na página de extensões, <strong>todos os seus dados somem</strong> (leads, agendamentos, templates). Exporte o backup antes.</p></div></div>
+      </section>
+
+      <section class="chapter" id="primeiros-passos">
+        <div class="kicker">Parte 1</div>
+        <h2>Primeiros passos</h2>
+        <p>Depois de instalar, faça este roteiro de 5 minutos para conhecer a ferramenta. O ícone UP também mostra esse checklist e marca o que você já concluiu.</p>
+        <ol class="steps">
+          <li><strong class="t">Abra uma conversa no WhatsApp Web</strong><p>Escolha um lead real ou um contato seu de teste.</p></li>
+          <li><strong class="t">Salve o contato no Kanban</strong><p>Na aba UP, clique em <span class="ui ghost">Salvar no Kanban</span>, confirme o telefone e escolha a etapa.</p></li>
+          <li><strong class="t">Agende o primeiro follow-up</strong><p>Na aba UP, clique em <span class="ui ghost">Agendar follow-up</span>, escolha “Em 1 hora” ou outro horário e confirme.</p></li>
+          <li><strong class="t">Confira na fila</strong><p>Clique no ícone UP da barra do navegador. O follow-up aparece na aba <em>Fila</em>.</p></li>
+          <li><strong class="t">Teste com um número seu</strong><p>Antes de usar com clientes, agende um envio para o seu próprio número e veja o fluxo completo funcionando.</p></li>
+        </ol>
+      </section>
+
+      <hr/>
+
+      <!-- PARTE 2 -->
+      <section class="chapter" id="uso">
+        <div class="kicker">Parte 2</div>
+        <h2>Como usar</h2>
+        <p>Existem três lugares para trabalhar: o <strong>menu UP</strong> dentro do WhatsApp Web, o <strong>ícone da extensão</strong> na barra do navegador e a página do <strong>Kanban</strong> (que também tem Campanhas, Métricas e Configurações).</p>
+
+        <h3 id="menu-up">Menu UP no WhatsApp Web</h3>
+        <p>No WhatsApp Web, na lateral direita da tela, há uma aba verde-escura com o logo <strong>UP</strong>. Clique nela para abrir o menu:</p>
+        <table>
+          <thead><tr><th style="width:34%">Opção</th><th>O que faz</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Painel do contato</strong></td><td>Abre um painel lateral com a etapa, tags, notas, follow-ups e tarefas da conversa aberta.</td></tr>
+            <tr><td><strong>Agendar follow-up</strong></td><td>Programa uma mensagem para esta conversa (ou para qualquer número).</td></tr>
+            <tr><td><strong>Salvar no Kanban</strong></td><td>Cria um card com o contato da conversa aberta.</td></tr>
+            <tr><td><strong>Abrir Kanban</strong></td><td>Abre o funil de leads em uma nova aba.</td></tr>
+            <tr><td><strong>Campanhas</strong></td><td>Abre a área de campanhas no Kanban.</td></tr>
+            <tr><td><strong>Manual de uso</strong></td><td>Abre este manual.</td></tr>
+          </tbody>
+        </table>
+        <p>Se houver follow-ups vencidos ou tarefas atrasadas, um <span class="chip danger">número vermelho</span> aparece sobre a aba UP. A tecla <span class="kbd">Esc</span> fecha o menu.</p>
+
+        <h3 id="salvar-contato">Salvar contato no Kanban</h3>
+        <ol>
+          <li>Abra a conversa do lead.</li>
+          <li>Menu UP &gt; <strong>Salvar no Kanban</strong>.</li>
+          <li>Confira o <strong>telefone</strong>. O sistema tenta detectá-lo sozinho; se não conseguir, digite com DDD, por exemplo <code>(31) 99999-9999</code>.</li>
+          <li>Escolha a etapa e clique em <strong>Salvar contato</strong>.</li>
+        </ol>
+        <div class="callout info"><div><b class="h">Por que o telefone?</b><p>Todo o sistema identifica o lead pelo <strong>telefone</strong>, nunca pelo nome. Isso evita enviar mensagem para a pessoa errada quando há nomes iguais. Cada telefone só pode existir uma vez no Kanban.</p></div></div>
+
+        <h3 id="agendar">Agendar follow-up</h3>
+        <p>Menu UP &gt; <strong>Agendar follow-up</strong>. Preencha:</p>
+        <ul>
+          <li><strong>Nome e telefone</strong> do contato (já vêm preenchidos quando a conversa está aberta).</li>
+          <li><strong>Template (opcional)</strong>: escolha um modelo pronto ou escreva uma mensagem livre.</li>
+          <li><strong>Mensagem</strong>: você pode usar <em>variáveis</em> entre chaves (veja abaixo). A <strong>prévia</strong> mostra o texto final.</li>
+          <li><strong>Quando enviar</strong>: use os atalhos <span class="chip brand">Em 1 hora</span> <span class="chip brand">Hoje 18h</span> <span class="chip brand">Amanhã 9h</span> <span class="chip brand">Em 3 dias</span> <span class="chip brand">Segunda 9h</span> ou escolha data e hora.</li>
+          <li><strong>Repetir</strong>: não repetir, todo dia, toda semana ou todo mês.</li>
+          <li><strong>Enviar sozinho</strong>: veja a explicação a seguir.</li>
+        </ul>
+
+        <h4>Variáveis nas mensagens</h4>
+        <table>
+          <thead><tr><th style="width:34%">Variável</th><th>Resultado</th></tr></thead>
+          <tbody>
+            <tr><td><code>{primeiro_nome}</code></td><td>Primeiro nome do contato (ex.: “Maria”).</td></tr>
+            <tr><td><code>{nome}</code></td><td>Nome completo do contato.</td></tr>
+            <tr><td><code>{data}</code></td><td>Data do envio.</td></tr>
+            <tr><td><code>{empreendimento}</code> ou qualquer outra</td><td>O sistema pede o valor na hora de agendar (ex.: “Lisboa”). Se ficar em branco, o agendamento é bloqueado para não sair com chaves na mensagem.</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Enviar sozinho ou confirmar?</h4>
+        <div class="grid cols-2">
+          <div class="card"><h4><span class="chip brand">Automático</span></h4><p>Na hora marcada, a extensão abre a conversa em segundo plano, mostra o aviso <em>“Envio automático”</em> e envia em poucos segundos. Você pode clicar em <strong>Cancelar</strong> nesse intervalo. Exige computador ligado, navegador aberto e WhatsApp Web conectado.</p></div>
+          <div class="card"><h4><span class="chip muted">Confirmar</span></h4><p>Na hora marcada, você recebe uma notificação. Ao clicar, o chat abre com o texto pronto e o aviso <em>“Confirmar envio”</em>. A mensagem só sai quando você clica em <strong>Enviar</strong>.</p></div>
+        </div>
+
+        <div class="callout warn"><div><b class="h">E se o computador estava desligado?</b><p>Nada é enviado atrasado sozinho. Se o horário passar de mais de 5 minutos sem o envio, o item vira <span class="chip danger">Vencido</span> e aparece no ícone UP para você escolher: <strong>Enviar</strong>, <strong>Reagendar</strong> ou <strong>Pular</strong>.</p></div></div>
+
+        <h3 id="painel-contato">Painel do contato</h3>
+        <p>Menu UP &gt; <strong>Painel do contato</strong>. Um painel se abre à direita e acompanha a conversa aberta:</p>
+        <ul>
+          <li><strong>Etapa</strong>: mude o lead de coluna do Kanban sem sair do WhatsApp. Também mostra há quantos dias ele está na etapa atual.</li>
+          <li><strong>Tags</strong>: digite e pressione <span class="kbd">Enter</span> para adicionar; clique em uma tag para remover.</li>
+          <li><strong>Notas privadas</strong>: só você vê; salvam ao sair do campo.</li>
+          <li><strong>Follow-ups pendentes</strong> e <strong>Tarefas</strong> daquele contato.</li>
+        </ul>
+        <p>Se o contato ainda não está no Kanban, o painel oferece o botão <strong>Salvar no Kanban</strong>.</p>
+
+        <h3 id="respostas-rapidas">Respostas rápidas</h3>
+        <ol>
+          <li>Na conversa, clique no campo onde você digita a mensagem.</li>
+          <li>Digite <span class="kbd">/</span> logo no início. Aparece a lista dos seus templates.</li>
+          <li>Continue digitando para filtrar (ex.: <code>/visita</code>).</li>
+          <li>Use <span class="kbd">↑</span> <span class="kbd">↓</span> para navegar e <span class="kbd">Enter</span> para inserir. <span class="kbd">Esc</span> fecha a lista.</li>
+        </ol>
+        <p>O texto entra no campo já com o nome do contato. Se o template tiver variáveis extras, o sistema pergunta o valor. Revise e envie normalmente. Os templates são editados em <strong>Configurações</strong>.</p>
+
+        <h3 id="tarefas">Tarefas</h3>
+        <p>Tarefas são lembretes <em>sem mensagem</em>, como “ligar para o João sobre a proposta”.</p>
+        <ul>
+          <li>Crie pelo <strong>Painel do contato</strong> (ligada ao lead) ou pelo <strong>ícone UP &gt; aba Tarefas</strong>.</li>
+          <li>Escolha um atalho de horário ou defina data e hora.</li>
+          <li>No horário, você recebe uma notificação. Tarefas atrasadas entram na contagem vermelha do ícone.</li>
+          <li>Clique em <span class="ui">Feito</span> para concluir.</li>
+        </ul>
+
+        <h3 id="kanban">Kanban</h3>
+        <p>Abra pelo menu UP (<em>Abrir Kanban</em>) ou pelo ícone UP. O funil padrão segue a lógica de <strong>pré-atendimento</strong>, com os mesmos nomes das etapas iniciais do CRM:</p>
+        <table>
+          <thead><tr><th style="width:34%">Coluna</th><th>Quando o lead está aqui</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Novo lead</strong></td><td>Entrou agora e ainda não recebeu contato.</td></tr>
+            <tr><td><strong>Tentativa de contato</strong></td><td>Primeira mensagem enviada; aguardando resposta.</td></tr>
+            <tr><td><strong>Em qualificação</strong></td><td>Respondeu. Você está entendendo interesse, prazo e perfil.</td></tr>
+            <tr><td><strong>Diagnóstico</strong></td><td>Renda, entrada e objetivo levantados; definindo o produto ideal.</td></tr>
+            <tr><td><strong>Visita / Reunião agendada</strong></td><td>Visita ou reunião marcada com o corretor.</td></tr>
+            <tr><td><strong>Follow-up qualificado</strong></td><td>Qualificado, mas aguardando o momento certo. Retomar com follow-up.</td></tr>
+            <tr><td><strong>Perdido</strong></td><td>Sem interesse, sem resposta após a cadência ou fora do perfil.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Todas as colunas são editáveis</strong>: nome, descrição, cor, posição, e você pode criar e excluir as suas.</p>
+        <table>
+          <thead><tr><th style="width:34%">Quero…</th><th>Como fazer</th></tr></thead>
+          <tbody>
+            <tr><td>Criar uma coluna</td><td>Botão <span class="ui ghost">+ Coluna</span> no topo: informe nome, descrição e cor.</td></tr>
+            <tr><td>Editar uma coluna (nome, descrição, cor)</td><td>Clique no <strong>lápis</strong> no canto do cabeçalho da coluna e depois em <em>Salvar alterações</em>.</td></tr>
+            <tr><td>Reordenar colunas</td><td>No editor da coluna, use <em>Mover para a esquerda</em> ou <em>Mover para a direita</em>.</td></tr>
+            <tr><td>Excluir uma coluna</td><td>No editor da coluna, <em>Excluir coluna</em>. Se houver contatos nela, escolha para qual coluna movê-los.</td></tr>
+            <tr><td>Voltar ao funil padrão</td><td>Configurações &gt; <em>Colunas padrão</em>.</td></tr>
+            <tr><td>Adicionar contato</td><td><em>Adicionar contato</em> no pé da coluna, ou pelo menu UP no WhatsApp.</td></tr>
+            <tr><td>Mover um lead</td><td>Arraste o card para outra coluna (também funciona com o teclado). Colunas vazias aceitam o card.</td></tr>
+            <tr><td>Abrir a conversa</td><td>Ícone de balão no card, ou <em>Abrir conversa</em> dentro do card.</td></tr>
+            <tr><td>Encontrar leads</td><td>Busca por nome, telefone ou tag, e filtros por tag e coluna.</td></tr>
+          </tbody>
+        </table>
+        <p>Em cada card você vê o telefone, as tags, se há notas e <span class="chip warn">há quantos dias</span> o lead está na etapa. A partir de <strong>7 dias</strong> o indicador fica amarelo, sinalizando lead parado.</p>
+
+        <h3 id="campanhas">Campanhas</h3>
+        <p>Campanhas enviam uma mensagem para vários contatos, um por vez, com <strong>intervalos aleatórios</strong> e <strong>variações de texto</strong>. Use com muito critério (veja <a href="#regras">Boas práticas</a>).</p>
+        <ol class="steps">
+          <li><strong class="t">Abra Campanhas e clique em “Nova campanha”</strong><p>Dê um nome fácil de reconhecer.</p></li>
+          <li><strong class="t">Escolha o público</strong>
+            <ul><li><strong>Do Kanban</strong>: filtre por coluna e/ou tag.</li><li><strong>Lista colada</strong>: uma pessoa por linha, no formato <code>Nome;Telefone</code> ou só o telefone.</li><li><strong>Os dois</strong>: junta tudo, sem repetir telefone.</li></ul>
+            <p>O sistema mostra quantos contatos válidos encontrou e quantas linhas ignorou por telefone inválido.</p></li>
+          <li><strong class="t">Escreva pelo menos 5 variações</strong><p>Cada contato recebe uma variação sorteada. As variações devem ser diferentes entre si e usar as <strong>mesmas variáveis</strong>. A prévia mostra como fica para o primeiro contato.</p></li>
+          <li><strong class="t">Defina o ritmo</strong><p>Informe o intervalo <strong>mínimo e máximo</strong> em segundos; o sistema sorteia o tempo de espera entre cada envio. O mínimo permitido é de 15 s. Opcionalmente, escolha uma coluna para onde o card será movido depois do envio.</p></li>
+          <li><strong class="t">Salve e inicie</strong><p>Use <span class="ui">Salvar e iniciar</span> e confirme. Mantenha a aba do WhatsApp Web aberta e conectada até o fim.</p></li>
+        </ol>
+
+        <h4>Acompanhando e controlando</h4>
+        <p>Durante a campanha, uma <strong>barra de controle</strong> aparece na parte de baixo do WhatsApp Web mostrando o progresso e o tempo até o próximo envio, com os botões <span class="ui ghost">Pausar</span>, <span class="ui">Retomar</span> e <span class="ui ghost">Parar</span>. Você pode pausar a qualquer momento. O <strong>Relatório</strong> da campanha mostra, por contato, o status, a variação usada e eventuais erros.</p>
+
+        <h4>Quando a campanha pausa sozinha</h4>
+        <table>
+          <thead><tr><th style="width:34%">Motivo</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td>Limite diário atingido</td><td>Pausa e retoma sozinha às 9h do dia seguinte, se o navegador estiver aberto.</td></tr>
+            <tr><td>Falhas seguidas (padrão: 3)</td><td>Pausa e mostra o último erro. Corrija e clique em Retomar.</td></tr>
+            <tr><td>Aviso de restrição do WhatsApp</td><td>Pausa imediatamente. <strong>Pare e procure o gestor</strong> antes de continuar.</td></tr>
+            <tr><td>Navegador reiniciado ou computador desligado</td><td>A campanha volta <em>pausada</em>. Retome quando quiser.</td></tr>
+            <tr><td>Você cancelou um envio em andamento</td><td>O contato volta para a fila e a campanha pausa.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="metricas">Métricas</h3>
+        <p>Abra pelo Kanban (aba <strong>Métricas</strong>) ou pelo ícone UP. Você acompanha:</p>
+        <ul>
+          <li>Envios de hoje, dos últimos 7 e dos últimos 30 dias, e o gráfico diário.</li>
+          <li>Follow-ups vencidos e a <strong>taxa de conclusão</strong> (enviados em relação ao total).</li>
+          <li>Tarefas abertas e atrasadas.</li>
+          <li>Leads por coluna e <strong>tempo médio parado em cada etapa</strong>.</li>
+          <li>Lista de <strong>leads parados</strong> há X dias (você define o X).</li>
+        </ul>
+        <p>O histórico de envios começa a ser registrado a partir da versão 1.2.</p>
+
+        <h3 id="config">Configurações e backup</h3>
+        <p>Ícone UP &gt; símbolo de ajustes, ou o mesmo símbolo no topo do Kanban.</p>
+        <table>
+          <thead><tr><th style="width:34%">Opção</th><th>Para que serve</th></tr></thead>
+          <tbody>
+            <tr><td>Limite diário de envios</td><td>Máximo de mensagens enviadas por dia nesta conta. Padrão: 30.</td></tr>
+            <tr><td>Intervalo entre follow-ups</td><td>Espera mínima entre dois follow-ups agendados. Padrão: 60 s.</td></tr>
+            <tr><td>Avisar antes</td><td>Minutos de antecedência do aviso de um follow-up. Padrão: 5.</td></tr>
+            <tr><td>Pausar campanha após falhas</td><td>Quantas falhas seguidas pausam a campanha. Padrão: 3.</td></tr>
+            <tr><td>Piso do intervalo da campanha</td><td>Menor intervalo mínimo aceito em campanhas. Padrão: 15 s.</td></tr>
+            <tr><td>Templates</td><td>Crie, edite e exclua modelos. Eles alimentam o agendamento e as respostas rápidas (<span class="kbd">/</span>).</td></tr>
+            <tr><td>Exportar backup (JSON)</td><td>Salva <strong>tudo</strong>: leads, colunas, agendamentos, templates, campanhas, tarefas e configurações.</td></tr>
+            <tr><td>Exportar Kanban (CSV)</td><td>Planilha com nome, telefone, etapa, tags e notas.</td></tr>
+            <tr><td>Importar backup</td><td>Restaura um backup. <strong>Substitui</strong> todos os dados atuais.</td></tr>
+            <tr><td>Colunas padrão</td><td>Volta ao funil imobiliário padrão.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warn"><div><b class="h">Faça backup</b><p>Seus dados ficam só neste navegador e <strong>não sincronizam entre computadores</strong>. Exporte um backup toda semana e antes de atualizar, reinstalar ou formatar a máquina. Guarde o arquivo em local seguro da empresa.</p></div></div>
+
+        <h3 id="popup">O ícone da extensão (barra do navegador)</h3>
+        <p>Clique no ícone UP para ver o resumo do seu dia:</p>
+        <ul>
+          <li><strong>Envios de hoje</strong>: quantas mensagens você já enviou em relação ao limite diário.</li>
+          <li><strong>Atalhos</strong> para WhatsApp, Kanban, Campanhas e Métricas.</li>
+          <li><strong>Primeiros passos</strong>: checklist que some quando você conclui tudo (ou clique em <em>Ocultar</em>).</li>
+          <li><strong>Fila</strong>: follow-ups <span class="chip danger">vencidos</span> (que precisam da sua decisão) e os próximos. Cada item mostra se é <span class="chip brand">Automático</span> ou <span class="chip muted">Confirmar</span>.</li>
+          <li><strong>Tarefas</strong>: seus lembretes abertos, com formulário para criar novos.</li>
+          <li><strong>Histórico</strong>: enviados, falhas e pulados, com o motivo quando algo falha.</li>
+        </ul>
+        <p>O <span class="chip danger">número vermelho</span> sobre o ícone indica quantos itens (follow-ups vencidos e tarefas atrasadas) esperam por você.</p>
+        <p>Ações em um follow-up: <span class="ui">Enviar</span> (abre o chat e envia na hora), <span class="ui ghost">Pular</span> (ignora este e, se for recorrente, agenda o próximo), <span class="ui ghost">Reagendar</span> e <span class="ui ghost">Cancelar</span>.</p>
+      </section>
+
+      <hr/>
+
+      <section class="chapter" id="regras">
+        <div class="kicker">Apoio</div>
+        <h2>Boas práticas</h2>
+        <div class="callout danger"><div><b class="h">Importante</b><p>Envio automático e em massa não são recursos oficiais do WhatsApp e podem causar <strong>restrição ou bloqueio do seu número</strong>. A ferramenta traz travas para reduzir o risco, mas ele nunca é zero. Use com responsabilidade.</p></div></div>
+        <ul>
+          <li><strong>Fale com quem já conversou com você.</strong> Evite mandar mensagens para números que nunca interagiram com a UP.</li>
+          <li><strong>Varie os textos.</strong> Mensagens idênticas para muita gente são o principal sinal de spam. Use as variações e o <code>{primeiro_nome}</code>.</li>
+          <li><strong>Respeite o ritmo.</strong> Não reduza o limite diário nem os intervalos além do recomendado. Aumente o volume aos poucos, não de uma vez.</li>
+          <li><strong>Escolha bons horários.</strong> Prefira horário comercial. Evite madrugada e domingos.</li>
+          <li><strong>Pediu para parar? Pare.</strong> Se o lead pedir para não receber mais mensagens, tire-o das campanhas e dos follow-ups recorrentes.</li>
+          <li><strong>Revise antes de iniciar.</strong> Leia a prévia, confira o público e teste primeiro com um número seu.</li>
+          <li><strong>Aviso do WhatsApp = pare.</strong> Se aparecer qualquer aviso de restrição, interrompa tudo e fale com o gestor.</li>
+          <li><strong>Cuide dos dados.</strong> Backups e planilhas exportadas contêm dados de clientes: guarde-os apenas em locais autorizados pela empresa.</li>
+          <li><strong>Uma conta por pessoa.</strong> Cada corretor usa o próprio WhatsApp e o próprio navegador.</li>
+        </ul>
+      </section>
+
+      <section class="chapter" id="faq">
+        <div class="kicker">Apoio</div>
+        <h2>Problemas comuns</h2>
+
+        <div class="qa"><h4>A mensagem não saiu sozinha no horário</h4>
+          <ul><li>O computador estava ligado e o navegador aberto? Alarmes só funcionam assim.</li><li>O WhatsApp Web estava conectado (sem QR code na tela)?</li><li>Você atingiu o limite diário? Veja o contador no ícone UP.</li><li>Confira a aba <em>Fila</em>: se estiver em <span class="chip danger">Vencidos</span>, clique em Enviar.</li><li>Veja o item no <em>Histórico</em>: a razão da falha aparece ali.</li></ul></div>
+
+        <div class="qa"><h4>Apareceu “O número é inválido ou não está no WhatsApp”</h4><p>Confira o telefone: precisa ter DDD (ex.: 31 99999-9999) e o contato precisa ter WhatsApp. Corrija no Kanban ou reagende com o número certo.</p></div>
+
+        <div class="qa"><h4>“O WhatsApp Web não está conectado”</h4><p>Abra web.whatsapp.com, leia o QR code com o celular e, depois, reenvie pela fila (botão <strong>Enviar</strong>) ou reagende.</p></div>
+
+        <div class="qa"><h4>A campanha pausou sozinha</h4><p>A barra de controle e a tela de Campanhas mostram o motivo. Limite diário e reinício do navegador são normais; falhas seguidas pedem que você verifique a conexão e os telefones antes de retomar. Em caso de aviso de restrição, não retome e procure o gestor.</p></div>
+
+        <div class="qa"><h4>O telefone do contato não é detectado automaticamente</h4><p>Isso é normal para alguns contatos salvos na agenda. Digite o número com DDD nos campos de telefone.</p></div>
+
+        <div class="qa"><h4>A página do WhatsApp recarrega a cada envio</h4><p>É esperado. Para abrir cada conversa pelo número, a página é recarregada. Leva alguns segundos.</p></div>
+
+        <div class="qa"><h4>Não recebo as notificações</h4><p>Verifique as notificações do sistema para o Chrome/Edge (passo 8 da instalação) e se o modo “Não perturbe/Foco” está desligado.</p></div>
+
+        <div class="qa"><h4>Perdi meus dados</h4><p>Os dados ficam no navegador. Se removeu a extensão ou limpou os dados do navegador, restaure o último backup em Configurações &gt; <em>Importar backup</em>. Por isso exporte backups com frequência.</p></div>
+
+        <div class="qa"><h4>Posso usar em dois computadores?</h4><p>Pode instalar nos dois, mas cada um terá seus próprios dados. Para levar leads de um para o outro, exporte o backup em um e importe no outro (a importação substitui os dados do destino).</p></div>
+
+        <div class="qa"><h4>Algo quebrou depois de uma atualização do WhatsApp Web</h4><p>O WhatsApp muda a página de tempos em tempos e a extensão pode precisar de ajuste. Avise o gestor informando o que parou de funcionar e a versão da extensão (aparece no rodapé do ícone UP).</p></div>
+      </section>
+
+      <section class="chapter" id="cola">
+        <div class="kicker">Apoio</div>
+        <h2>Cola rápida</h2>
+        <div class="cheat">
+          <h3>No dia a dia</h3>
+          <ul>
+            <li><strong>Aba UP</strong> (lateral direita do WhatsApp Web): painel do contato, agendar, salvar no Kanban.</li>
+            <li><strong>Ícone UP</strong> (barra do navegador): fila, vencidos, tarefas e histórico.</li>
+            <li><strong>Número vermelho</strong> = itens esperando decisão sua.</li>
+            <li><span class="kbd">/</span> no campo de mensagem = respostas rápidas.</li>
+            <li><strong>Vencido?</strong> Enviar, Reagendar ou Pular. Nada sai atrasado sozinho.</li>
+            <li><strong>Campanha:</strong> mínimo 5 variações, intervalos aleatórios, barra com Pausar/Parar.</li>
+            <li><strong>Backup</strong> toda semana: Configurações &gt; Exportar backup.</li>
+            <li><strong>Aviso de restrição do WhatsApp?</strong> Pare tudo e fale com o gestor.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span>UP Consultoria Imobiliária · Uso interno da equipe</span>
+      <span>Follow-up UP v<span data-version>1.4.0</span> · Atualizado em 30/10/2026</span>
+    </footer>
+  </main>
+</div>
+<script src="manual.js"></script>
+</body>
+</html>

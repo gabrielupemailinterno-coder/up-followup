@@ -1,0 +1,8 @@
+node_modules/
+dist/
+releases/
+extensao-instalada/
+*.log
+.DS_Store
+.env
+.env.*

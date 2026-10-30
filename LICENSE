@@ -1,0 +1,13 @@
+Copyright (c) 2026 UP Consultoria Imobiliária. Todos os direitos reservados.
+
+Este software é de uso interno da equipe da UP Consultoria Imobiliária. Não é
+permitido copiar, modificar, distribuir ou usar este software, no todo ou em
+parte, fora da UP sem autorização por escrito.
+
+O logotipo, a identidade visual e os materiais de marca da UP incluídos neste
+repositório (pastas public/brand e public/manual) são propriedade da UP e não
+estão licenciados para uso por terceiros.
+
+Componentes de terceiros mantêm suas próprias licenças:
+- Manrope (public/fonts): SIL Open Font License 1.1 (public/fonts/OFL-Manrope.txt).
+- Dependências npm: conforme as licenças de cada pacote.

@@ -1,0 +1,3 @@
+/* Estilos base (fonte, cores, foco) vêm de src/brand.css */
+html, body, #root { height: 100%; }
+body { overflow: hidden; }
