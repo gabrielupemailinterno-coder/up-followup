@@ -127,7 +127,7 @@ export async function runJobStep(
 
   // 4) Tipo da atividade conforme o histórico do lead no CRM, depois preencher o formulário
   const activityType = resolveActivityType(job, page.leadHistory?.() ?? { activities: null, stage: null })
-  const patch = activityType !== activityType ? { activityType } : undefined
+  const patch = activityType !== job.activityType ? { activityType } : undefined
   if (patch) onStep(`Tipo ajustado pelo histórico do lead: ${activityType}`)
   onStep('Preenchendo a atividade…')
   if (!(await page.openActivityForm())) {
