@@ -10,7 +10,7 @@
  */
 
 import type { CrmJob } from './types'
-import { samePhone } from './crm'
+import { resolveActivityType, samePhone, type LeadHistory } from './crm'
 import {
   AGENT_SYSTEM, buildAgentPrompt, parseAgentReply, validateAction,
   type AgentAction, type AgentElement, type FormState, type Snapshot,
@@ -24,6 +24,7 @@ export interface AgentDeps {
   snapshot(): Promise<Snapshot>
   ask(system: string, prompt: string): Promise<AskResult>
   perform(action: AgentAction, element: AgentElement | undefined): Promise<void>
+  leadHistory?(): LeadHistory
   probe?(x: number, y: number): AgentElement | null
   formState(): FormState
   closeModal(): Promise<void>
@@ -42,10 +43,12 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
 const finished = (status: 'done' | 'tested' | 'failed' | 'skipped', message: string): AgentOutcome => ({ kind: 'finished', status, message })
 
 export async function runAgentJob(
-  job: Pick<CrmJob, 'phone' | 'activityType' | 'comment' | 'dryRun'>,
+  input: Pick<CrmJob, 'phone' | 'activityType' | 'comment' | 'dryRun' | 'autoTypes'>,
   deps: AgentDeps,
   opts: { maxSteps?: number; maxMs?: number } = {}
 ): Promise<AgentOutcome> {
+  const job = { ...input }   // o tipo pode mudar ao abrir o lead (histórico no CRM)
+  let typeResolved = false
   const maxSteps = opts.maxSteps ?? 25
   const maxMs = opts.maxMs ?? 180_000
   const startedAt = deps.now()
@@ -70,6 +73,11 @@ export async function runAgentJob(
       continue
     }
     if (verified) {
+      if (!typeResolved && deps.leadHistory) {
+        typeResolved = true
+        const t = resolveActivityType(job, deps.leadHistory())
+        if (t !== job.activityType) { deps.trace(`tipo ajustado pelo histórico do lead: ${t}`); job.activityType = t }
+      }
       verifiedLeads.add(snap.modalKey)
       if (verifiedLeads.size > 1) {
         await deps.closeModal()
@@ -138,7 +146,7 @@ export async function runAgentJob(
       const confirmed = await deps.waitForNewActivity(before)
       await deps.closeModal()
       return confirmed
-        ? finished('done', 'Atividade registrada no CRM (piloto Gemini).')
+        ? finished('done', `Atividade registrada no CRM (${job.activityType}, piloto Gemini).`)
         : finished('failed', 'Cliquei em enviar, mas não consegui confirmar a atividade no histórico. Confira no CRM antes de tentar de novo, para não duplicar.')
     }
 

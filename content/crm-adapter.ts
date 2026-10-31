@@ -375,11 +375,26 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
 
     activityCount() {
       const root = modalEl() ?? document
-      for (const b of root.querySelectorAll('button')) {
-        const m = (b.textContent ?? '').trim().match(/^Todas\s*(\d+)$/i)
+      // aba "Todas N" da linha do tempo (o número pode estar num elemento separado)
+      for (const el of root.querySelectorAll<HTMLElement>('button, [role="tab"], div, span, li')) {
+        const m = (el.textContent ?? '').replace(/\s+/g, ' ').trim().match(/^Todas\s*(\d+)$/i)
         if (m) return Number(m[1])
       }
       return null
+    },
+
+    leadHistory() {
+      const root = modalEl()
+      if (!root) return { activities: null, stage: null }
+      let stage: string | null = null
+      const label = [...root.querySelectorAll<HTMLElement>('label, span, div, p')].find(e => e.children.length === 0 && /^etapa$/i.test((e.textContent ?? '').trim()))
+      for (let box: HTMLElement | null = label?.parentElement ?? null, i = 0; box && i < 3 && !stage; box = box.parentElement, i++) {
+        const item = box.querySelector('.ant-select-selection-item')
+        if (item?.textContent?.trim()) stage = item.textContent.trim()
+      }
+      const activities = this.activityCount()
+      trace(`histórico do lead: etapa=${stage ?? '?'} · atividades=${activities ?? '?'}`)
+      return { activities, stage }
     },
 
     async submit() {

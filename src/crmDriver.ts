@@ -9,7 +9,7 @@
  */
 
 import type { CrmJob } from './types'
-import { CRM_PAGE_SIZE, formatPhoneForCrm, phoneSearchQueries, samePhone } from './crm'
+import { CRM_PAGE_SIZE, formatPhoneForCrm, phoneSearchQueries, resolveActivityType, samePhone, type LeadHistory } from './crm'
 
 /** Quantas linhas da busca estamos dispostos a abrir e conferir, uma a uma. */
 export const MAX_ROW_CANDIDATES = 15   // buscar "1707" no CRM real devolve 6 leads: a lista não traz o telefone, então abrimos cada um
@@ -27,6 +27,8 @@ export interface CrmPageAdapter {
   /** Clica no nome do lead da linha `index` e espera o painel abrir. */
   openLeadRow(index: number): Promise<boolean>
   readModalPhones(): string[]
+  /** Atividades e etapa do lead aberto (para decidir tentativa x follow-up). */
+  leadHistory?(): LeadHistory
   openActivityForm(): Promise<boolean>
   selectActivityType(label: string): Promise<{ ok: boolean; available?: string[] }>
   selectWhenNow(): Promise<boolean>
@@ -123,17 +125,20 @@ export async function runJobStep(
     return fail(`Nenhum dos leads encontrados tem o telefone ${shown} no cadastro. Nada foi registrado.`)
   }
 
-  // 4) Preencher o formulário
+  // 4) Tipo da atividade conforme o histórico do lead no CRM, depois preencher o formulário
+  const activityType = resolveActivityType(job, page.leadHistory?.() ?? { activities: null, stage: null })
+  const patch = activityType !== activityType ? { activityType } : undefined
+  if (patch) onStep(`Tipo ajustado pelo histórico do lead: ${activityType}`)
   onStep('Preenchendo a atividade…')
   if (!(await page.openActivityForm())) {
     await page.closeModal()
     return fail('O formulário "Adicionar Atividade" não abriu.')
   }
-  const type = await page.selectActivityType(job.activityType)
+  const type = await page.selectActivityType(activityType)
   if (!type.ok) {
     await page.closeModal()
     const list = type.available?.length ? ` Tipos disponíveis: ${type.available.join(' | ')}.` : ''
-    return fail(`O tipo "${job.activityType}" não existe no CRM.${list}`)
+    return fail(`O tipo "${activityType}" não existe no CRM.${list}`)
   }
   await page.selectWhenNow()
   if (!(await page.writeComment(job.comment))) {
@@ -144,7 +149,7 @@ export async function runJobStep(
   // 5) Modo teste: para antes de enviar
   if (job.dryRun) {
     await page.closeModal()
-    return { kind: 'finished', status: 'tested', message: `Modo teste: formulário preenchido (${job.activityType}) e NÃO enviado.` }
+    return { kind: 'finished', status: 'tested', message: `Modo teste: formulário preenchido (${activityType}) e NÃO enviado.`, patch }
   }
 
   // 6) Enviar e confirmar
@@ -159,5 +164,5 @@ export async function runJobStep(
   if (!confirmed) {
     return fail('Enviei o formulário, mas não consegui confirmar a atividade no histórico. Confira no CRM antes de tentar de novo, para não duplicar.')
   }
-  return { kind: 'finished', status: 'done', message: 'Atividade registrada no CRM.' }
+  return { kind: 'finished', status: 'done', message: `Atividade registrada no CRM (${activityType}).`, patch }
 }

@@ -525,6 +525,7 @@ interface CrmJobInput {
   activityType: string
   comment: string
   source: CrmJob['source']
+  autoTypes?: CrmJob['autoTypes']
 }
 
 /** Cria o job (com trava de duplicidade) e acorda a aba que opera o CRM. */
@@ -543,6 +544,7 @@ async function enqueueCrmJob(input: CrmJobInput, force = false): Promise<Reply> 
     phone: input.phone,
     contactName: input.contactName,
     activityType: input.activityType,
+    autoTypes: input.autoTypes,
     comment: input.comment,
     dedupeKey,
     leadId: match.kind === 'one' ? match.lead.id : undefined,
@@ -575,6 +577,7 @@ async function enqueueCrmActivity(p: { phone: string; contactName: string; text:
       phone: p.phone,
       contactName: p.contactName,
       activityType: pickActivityType(prior, settings),
+      autoTypes: { first: settings.crmFirstType, followup: settings.crmFollowupType },
       comment: buildActivityComment(p.text),
       source: p.source,
     })

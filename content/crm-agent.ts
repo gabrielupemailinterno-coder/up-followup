@@ -196,6 +196,7 @@ export function runGeminiPilot(job: CrmJob, adapter: CrmPageAdapter, trace: (tex
     ask,
     perform: (action, element) => perform(action, element, job),
     probe: probeAt,
+    leadHistory: adapter.leadHistory ? () => adapter.leadHistory!() : undefined,
     formState: () => formStateFor(job),
     closeModal: () => (modalEl() ? adapter.closeModal() : Promise.resolve()),
     activityCount: () => adapter.activityCount(),

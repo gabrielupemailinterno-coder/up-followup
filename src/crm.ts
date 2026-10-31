@@ -43,6 +43,27 @@ export function pickActivityType(
   return priorSendsToPhone <= 0 ? settings.crmFirstType : settings.crmFollowupType
 }
 
+export interface LeadHistory {
+  /** Quantas atividades o lead já tem na linha do tempo do CRM (null = não deu para ler). */
+  activities: number | null
+  /** Etapa atual do lead no CRM, ex.: "Novo Lead". */
+  stage: string | null
+}
+
+/**
+ * Tipo da atividade decidido no CRM: lead que já tem atividade registrada ou que já saiu de "Novo Lead"
+ * recebe follow-up; só o primeiro contato de um lead novo é "tentativa de contato".
+ * Registros manuais (sem autoTypes) mantêm o tipo escolhido pelo corretor.
+ */
+export function resolveActivityType(job: Pick<CrmJob, 'activityType' | 'autoTypes'>, hist: LeadHistory): string {
+  if (!job.autoTypes) return job.activityType
+  const { first, followup } = job.autoTypes
+  if ((hist.activities ?? 0) > 0) return followup
+  if (hist.stage && !/novo\s*lead/i.test(hist.stage)) return followup
+  if (job.activityType === followup) return followup   // a extensão já enviou antes para este número
+  return first
+}
+
 /** Comentário da atividade: uma linha, com o início do texto enviado. */
 export function buildActivityComment(text: string, maxLen = 200): string {
   const oneLine = text.replace(/\s+/g, ' ').trim()

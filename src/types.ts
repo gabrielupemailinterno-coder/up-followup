@@ -187,6 +187,8 @@ export interface CrmJob {
   phone: string
   contactName: string
   activityType: string         // texto exato da opção do CRM, ex.: "1 - Tentativa de contato"
+  /** Envios automáticos: o tipo final é decidido no CRM, olhando o histórico do lead (ver resolveActivityType). */
+  autoTypes?: { first: string; followup: string }
   comment: string
   dedupeKey: string
   leadId?: string
