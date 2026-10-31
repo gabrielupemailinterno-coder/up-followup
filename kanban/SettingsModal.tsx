@@ -15,6 +15,15 @@ import { useFeedback } from '../src/feedback'
 
 const sectionStyle: React.CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R.md, padding: '14px 16px', marginTop: '14px' }
 const h3: React.CSSProperties = { margin: '0 0 10px', fontSize: '13px', fontWeight: 800, color: C.brand }
+type SettingsTab = 'envios' | 'crm' | 'gemini' | 'templates' | 'dados'
+const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'envios', label: 'Envios e WhatsApp' },
+  { id: 'crm', label: 'CRM Incbook' },
+  { id: 'gemini', label: 'Gemini' },
+  { id: 'templates', label: 'Templates' },
+  { id: 'dados', label: 'Backup' },
+]
+
 const help: React.CSSProperties = { fontSize: '12px', color: C.muted, margin: '8px 0 0', lineHeight: 1.5 }
 
 export function SettingsModal({
@@ -30,6 +39,7 @@ export function SettingsModal({
   const [usedToday, setUsedToday] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const [wpp, setWpp] = useState<{ busy: boolean; result?: WppResult<WppStatus>; failure?: string }>({ busy: false })
+  const [tab, setTab] = useState<SettingsTab>('envios')
   const [gemKey, setGemKey] = useState('')
   const [crmStages, setCrmStagesState] = useState<string[]>([])
   const [kColumns, setKColumns] = useState<KanbanColumn[]>([])
@@ -133,7 +143,16 @@ export function SettingsModal({
           <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: C.brand }}>Configurações</h2>
           <button onClick={onClose} aria-label="Fechar" style={{ background: 'none', border: 'none', color: C.muted, display: 'flex' }}><Icon name="x" size={20} /></button>
         </div>
+        <nav role="tablist" aria-label="Seções das configurações" style={{ display: 'flex', gap: '4px', marginTop: '12px', borderBottom: `1px solid ${C.line}`, overflowX: 'auto' }}>
+          {SETTINGS_TABS.map(t => (
+            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+              style={{ background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? C.brand : 'transparent'}`, padding: '8px 10px', fontSize: '13px', fontWeight: tab === t.id ? 800 : 600, color: tab === t.id ? C.brand : C.muted, whiteSpace: 'nowrap', cursor: 'pointer' }}>
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
+        {tab === 'envios' && (
         <section style={sectionStyle}>
           <h3 style={h3}>Proteção da conta</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
@@ -170,7 +189,9 @@ export function SettingsModal({
             Mesmo com limites, volume alto e textos idênticos para números frios aumentam o risco de bloqueio da conta.
           </div>
         </section>
+        )}
 
+        {tab === 'crm' && (
         <section style={sectionStyle}>
           <h3 style={h3}>CRM Incbook</h3>
           <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', fontWeight: 600, marginBottom: '10px', cursor: 'pointer' }}>
@@ -242,7 +263,9 @@ export function SettingsModal({
             Teste primeiro: com o modo teste ligado, envie uma mensagem para um lead de teste e veja o resultado na aba CRM. Só depois desligue o modo teste.
           </div>
         </section>
+        )}
 
+        {tab === 'gemini' && (
         <section style={sectionStyle}>
           <h3 style={h3}>Piloto Gemini (CRM)</h3>
           <p style={{ ...help, margin: '0 0 10px' }}>
@@ -284,7 +307,9 @@ export function SettingsModal({
             Privacidade: a cada passo o Gemini (Google) recebe o texto da tela do CRM e, quando a aba está na frente, uma imagem, incluindo nome, telefone e anotações do lead. Use só com a ciência do time.
           </div>
         </section>
+        )}
 
+        {tab === 'envios' && (
         <section style={sectionStyle}>
           <h3 style={h3}>Diagnóstico do WhatsApp (WA-JS)</h3>
           <p style={{ ...help, margin: '0 0 10px' }}>
@@ -313,7 +338,9 @@ export function SettingsModal({
             </table>
           )}
         </section>
+        )}
 
+        {tab === 'templates' && (
         <section style={sectionStyle}>
           <h3 style={h3}>Respostas rápidas e templates</h3>
           <p style={{ ...help, margin: '0 0 10px' }}>
@@ -330,11 +357,13 @@ export function SettingsModal({
           ))}
           <button style={ghostBtn} onClick={() => setTemplates([...templates, { id: `tpl_${Date.now()}`, title: '', body: '' }])}><Icon name="plus" size={14} /> Novo template</button>
         </section>
+        )}
 
-        <div style={{ marginTop: '16px' }}>
+        <div style={{ marginTop: '16px', position: 'sticky', bottom: 0, background: C.surface, paddingTop: '8px' }}>
           <button style={{ ...primaryBtn(), width: '100%' }} onClick={saveAll}>Salvar configurações e templates</button>
         </div>
 
+        {tab === 'dados' && (
         <section style={sectionStyle}>
           <h3 style={h3}>Backup e dados</h3>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -349,6 +378,7 @@ export function SettingsModal({
             Os dados ficam só neste navegador/perfil e não sincronizam entre computadores. Exporte um backup de tempos em tempos, principalmente antes de reinstalar a extensão.
           </p>
         </section>
+        )}
       </div>
     </div>
   )

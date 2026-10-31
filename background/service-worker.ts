@@ -641,16 +641,10 @@ async function kickCrmDriverNow(force: boolean) {
     const oldest = Math.min(...open.map(j => j.createdAt))
     if (Date.now() - oldest < CRM_BATCH_MS) return
   }
-  // Janela na FRENTE: o Chrome PAUSA a renderização de abas escondidas ou cobertas por outras janelas,
-  // e o CRM (React) não atualiza a lista de leads nesse estado. Ela fecha sozinha ao terminar.
-  try {
-    const win = await chrome.windows.create({ url: `${CRM_URL}/leads`, type: 'popup', focused: true, width: 1000, height: 760, left: 60, top: 60 })
-    const id = win.tabs?.[0]?.id
-    if (id !== undefined) await setCrmDriverTab(id)
-  } catch {
-    const tab = await chrome.tabs.create({ url: `${CRM_URL}/leads`, active: false, pinned: true })
-    if (tab.id !== undefined) await setCrmDriverTab(tab.id)
-  }
+  // Aba fixada em segundo plano: não rouba a tela. (A leitura da tabela funciona com a aba escondida;
+  // o que falhava antes era o seletor das linhas, já corrigido.)
+  const tab = await chrome.tabs.create({ url: `${CRM_URL}/leads`, active: false, pinned: true })
+  if (tab.id !== undefined) await setCrmDriverTab(tab.id)
 }
 
 /** Vigia: registro "em andamento" sem nenhum progresso por 5 min = travado. Marca como falha e fecha a aba. */

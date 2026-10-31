@@ -9,10 +9,12 @@ import type { LeadContext, ScheduledMessage } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { normalizePhone } from '../src/phone'
 import { safeInterval } from '../src/alive'
-import { BASE_CSS, C, FONT, R, SHADOW } from '../src/theme'
+import { BASE_CSS, C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { Icon } from '../src/icons'
 import { errorStyle, ghostBtn, inputStyle, okStyle, primaryBtn, toLocalInput } from '../src/ui'
 import { readLeadContext } from './crm-adapter'
+
+const PANEL_W = 380
 
 export function mountCrmPanel() {
   if (document.getElementById('wm-crm-root')) return
@@ -40,6 +42,23 @@ function CrmPanelApp() {
   const [error, setError] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<Suggestion[]>([])
   const [syncNote, setSyncNote] = React.useState<string | null>(null)
+  const [hintSeen, setHintSeen] = React.useState(false)
+
+  // a dica "Mensagem para X" aparece uma vez por lead, por alguns segundos
+  React.useEffect(() => {
+    if (!lead) return
+    setHintSeen(false)
+    const t = setTimeout(() => setHintSeen(true), 5000)
+    return () => clearTimeout(t)
+  }, [lead?.name])
+
+  React.useEffect(() => {
+    if (!open) return
+    setHintSeen(true)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
 
   React.useEffect(() => {
     const read = () => {
@@ -108,30 +127,32 @@ function CrmPanelApp() {
 
   return (
     <>
+      {/* aba na borda direita, igual à do WhatsApp (não cobre a paginação nem os botões do CRM) */}
       <button
         onClick={() => setOpen(o => !o)}
-        aria-label="Abrir painel UP"
-        title="Follow-up UP"
-        style={{ position: 'fixed', right: '18px', bottom: '18px', zIndex: 2147483646, width: '52px', height: '52px', borderRadius: R.pill, border: 'none', background: C.brand, color: '#fff', fontWeight: 900, fontSize: '15px', boxShadow: SHADOW.pop, cursor: 'pointer' }}
+        aria-label={open ? 'Fechar painel UP' : 'Abrir painel UP'}
+        aria-expanded={open}
+        title={lead ? 'UP · mensagem para este lead' : 'UP · Follow-up'}
+        style={{ position: 'fixed', right: open ? `${PANEL_W}px` : 0, top: '38%', zIndex: 2147483647, width: '40px', height: '64px', border: 'none', borderRadius: `${R.md} 0 0 ${R.md}`, background: `linear-gradient(160deg, ${C.inkSoft}, ${C.brand})`, boxShadow: SHADOW.dock, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
-        UP
-        {lead && !open && <span style={{ position: 'absolute', top: '4px', right: '4px', width: '10px', height: '10px', borderRadius: R.pill, background: C.accent, border: '2px solid #fff' }} />}
+        <img src={brandUrl('logo-up-offwhite.png')} alt="" style={{ width: '22px' }} />
+        {lead && !open && <span style={{ position: 'absolute', top: '-5px', left: '-5px', width: '14px', height: '14px', borderRadius: R.pill, background: C.accent, border: '2px solid #fff' }} />}
       </button>
+      {lead && !open && !hintSeen && (
+        <div role="status" style={{ position: 'fixed', right: '48px', top: 'calc(38% + 14px)', zIndex: 2147483647, background: C.ink, color: '#fff', fontSize: '12px', fontWeight: 700, padding: '7px 10px', borderRadius: R.sm, boxShadow: SHADOW.dock, pointerEvents: 'none' }}>
+          Mensagem para {lead.name.split(/\s+/)[0] || 'o lead'} com o Gemini →
+        </div>
+      )}
 
       {open && (
-        <aside style={{ position: 'fixed', right: '18px', bottom: '80px', zIndex: 2147483646, width: '380px', maxHeight: 'calc(100vh - 110px)', overflowY: 'auto', background: C.surface, color: C.ink, borderRadius: R.lg, boxShadow: SHADOW.pop, border: `1px solid ${C.line}`, padding: '14px 16px' }}>
+        <aside aria-label="Painel UP" style={{ position: 'fixed', right: 0, top: 0, bottom: 0, zIndex: 2147483646, width: `${PANEL_W}px`, overflowY: 'auto', background: C.surface, color: C.ink, boxShadow: SHADOW.pop, borderLeft: `1px solid ${C.line}`, padding: '14px 16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <strong style={{ color: C.brand, fontSize: '14px', display: 'flex', gap: '7px', alignItems: 'center' }}><Icon name="chat" size={16} /> Mensagem para o lead</strong>
             <button onClick={() => setOpen(false)} aria-label="Fechar" style={{ background: 'none', border: 'none', color: C.muted, display: 'flex', cursor: 'pointer' }}><Icon name="x" size={18} /></button>
           </div>
 
           {!lead && <p style={{ fontSize: '13px', color: C.muted, margin: 0 }}>Abra um lead no CRM (clique no nome dele) para sugerir e enviar mensagens.</p>}
-          <button style={{ ...ghostBtn, width: '100%', marginBottom: '10px', marginTop: lead ? 0 : '10px' }} onClick={async () => {
-            const r = await sendToBackground({ type: 'CRM_SYNC' })
-            setError(r.ok ? null : r.message)
-            setSyncNote(r.ok ? 'Sincronizando: uma janela do CRM abre, lê a tela Leads e atualiza o Kanban. O resultado aparece na aba CRM do ícone UP.' : null)
-          }}><Icon name="repeat" size={14} /> Sincronizar com o Kanban</button>
-          {syncNote && <div style={{ ...okStyle, marginBottom: '10px' }}>{syncNote}</div>}
+
 
           {lead && (
             <>
@@ -182,6 +203,15 @@ function CrmPanelApp() {
               </p>
             </>
           )}
+          <div style={{ borderTop: `1px solid ${C.line}`, marginTop: '16px', paddingTop: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Kanban</div>
+          <button style={{ ...ghostBtn, width: '100%', marginTop: '6px' }} onClick={async () => {
+            const r = await sendToBackground({ type: 'CRM_SYNC' })
+            setError(r.ok ? null : r.message)
+            setSyncNote(r.ok ? 'Sincronizando: uma janela do CRM abre, lê a tela Leads e atualiza o Kanban. O resultado aparece na aba CRM do ícone UP.' : null)
+          }}><Icon name="repeat" size={14} /> Sincronizar com o Kanban</button>
+          {syncNote && <div style={{ ...okStyle, marginTop: '8px' }}>{syncNote}</div>}
+          </div>
         </aside>
       )}
     </>

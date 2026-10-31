@@ -40,8 +40,10 @@ type Modal = 'scheduler' | 'quickadd' | null
 
 const DOCK_KEY = 'wm_dock_open'
 
+// O menu sempre começa fechado (aberto ele cobria o painel de dados do contato do WhatsApp).
 function readDockOpen(): boolean {
-  try { return localStorage.getItem(DOCK_KEY) === '1' } catch { return false }
+  try { localStorage.removeItem(DOCK_KEY) } catch { /* sem armazenamento */ }
+  return false
 }
 
 function FloatingApp() {
@@ -90,8 +92,16 @@ function FloatingApp() {
 
   function toggleDock(next: boolean) {
     setDockOpen(next)
-    try { localStorage.setItem(DOCK_KEY, next ? '1' : '0') } catch { /* sem armazenamento */ }
   }
+
+  // Clique fora do menu fecha (o menu vive no Shadow DOM: o host aparece no caminho do evento)
+  React.useEffect(() => {
+    if (!dockOpen) return
+    const host = document.getElementById('wm-root')
+    const onDown = (e: PointerEvent) => { if (host && !e.composedPath().includes(host)) toggleDock(false) }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [dockOpen])
 
   React.useEffect(() => {
     if (!dockOpen) return
@@ -100,10 +110,11 @@ function FloatingApp() {
     return () => document.removeEventListener('keydown', onKey)
   }, [dockOpen])
 
-  const items: { icon: IconName; label: string; hint: string; run: () => void; active?: boolean }[] = [
-    { icon: 'user', label: 'Painel do contato', hint: 'Etapa, tags, notas e tarefas', run: () => setPanelOpen(!panelOpen), active: panelOpen },
-    { icon: 'calendar', label: 'Agendar follow-up', hint: 'Programe uma mensagem', run: () => setModal('scheduler') },
-    { icon: 'userPlus', label: 'Salvar no Kanban', hint: 'Adicione esta conversa', run: () => setModal('quickadd') },
+  const noChat = !contact
+  const items: { icon: IconName; label: string; hint: string; run: () => void; active?: boolean; disabled?: boolean }[] = [
+    { icon: 'user', label: 'Painel do contato', hint: noChat ? 'Abra uma conversa primeiro' : 'Etapa, tags, notas e tarefas', run: () => setPanelOpen(!panelOpen), active: panelOpen, disabled: noChat && !panelOpen },
+    { icon: 'calendar', label: 'Agendar follow-up', hint: noChat ? 'Abra uma conversa ou digite o número' : `Para ${contact?.name ?? 'esta conversa'}`, run: () => setModal('scheduler') },
+    { icon: 'userPlus', label: 'Salvar no Kanban', hint: noChat ? 'Abra uma conversa primeiro' : 'Adicione esta conversa', run: () => setModal('quickadd'), disabled: noChat },
     { icon: 'kanban', label: 'Abrir Kanban', hint: 'Seu funil de leads', run: () => void sendToBackground({ type: 'OPEN_KANBAN' }) },
     { icon: 'megaphone', label: 'Campanhas', hint: 'Disparo com variações', run: () => void sendToBackground({ type: 'OPEN_KANBAN', payload: { hash: 'campanhas' } }) },
     { icon: 'book', label: 'Manual de uso', hint: 'Passo a passo do time', run: () => void sendToBackground({ type: 'OPEN_MANUAL' }) },
@@ -129,12 +140,15 @@ function FloatingApp() {
             {items.map(it => (
               <button
                 key={it.label}
-                onClick={() => { it.run(); toggleDock(false) }}
+                onClick={() => { if (it.disabled) return; it.run(); toggleDock(false) }}
+                disabled={it.disabled}
+                aria-disabled={it.disabled}
                 style={{
+                  opacity: it.disabled ? 0.45 : 1, cursor: it.disabled ? 'not-allowed' : 'pointer',
                   width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '9px 10px', border: 'none',
                   borderRadius: R.sm, background: it.active ? C.accentSoft : 'transparent', textAlign: 'left', color: C.ink, fontFamily: FONT,
                 }}
-                onMouseEnter={e => { if (!it.active) e.currentTarget.style.background = '#F3F1E8' }}
+                onMouseEnter={e => { if (!it.active && !it.disabled) e.currentTarget.style.background = '#F3F1E8' }}
                 onMouseLeave={e => { if (!it.active) e.currentTarget.style.background = 'transparent' }}
               >
                 <span style={{ width: '32px', height: '32px', borderRadius: R.sm, background: C.brand, color: C.onBrand, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
