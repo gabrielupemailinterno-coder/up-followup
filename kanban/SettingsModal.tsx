@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import type { AppSettings, CrmAgentMode, GeminiStatus, KanbanColumn, Template } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { getSettings, getTemplates, saveSettings, saveTemplates, getTodayLog, getGeminiUserKey, setGeminiUserKey, getCrmStages, getKanbanColumns } from '../src/storage'
+import { getSettings, getTemplates, saveSettings, saveTemplates, getTodayLog, getGeminiUserKey, setGeminiUserKey, getClaudeUserKey, setClaudeUserKey, getCrmStages, getKanbanColumns } from '../src/storage'
 import { columnForStage, normTitle } from '../src/crmSync'
 import { buildBackup, buildKanbanCsv, downloadFile, restoreBackup } from '../src/backup'
 import { C, R } from '../src/theme'
@@ -19,7 +19,7 @@ type SettingsTab = 'envios' | 'crm' | 'gemini' | 'templates' | 'dados'
 const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: 'envios', label: 'Envios e WhatsApp' },
   { id: 'crm', label: 'CRM Incbook' },
-  { id: 'gemini', label: 'Gemini' },
+  { id: 'gemini', label: 'IA (Claude/Gemini)' },
   { id: 'templates', label: 'Templates' },
   { id: 'dados', label: 'Backup' },
 ]
@@ -41,6 +41,7 @@ export function SettingsModal({
   const [wpp, setWpp] = useState<{ busy: boolean; result?: WppResult<WppStatus>; failure?: string }>({ busy: false })
   const [tab, setTab] = useState<SettingsTab>('envios')
   const [gemKey, setGemKey] = useState('')
+  const [claudeKey, setClaudeKey] = useState('')
   const [crmStages, setCrmStagesState] = useState<string[]>([])
   const [kColumns, setKColumns] = useState<KanbanColumn[]>([])
   const [gemStatus, setGemStatus] = useState<GeminiStatus | null>(null)
@@ -58,6 +59,7 @@ export function SettingsModal({
       setTemplates(t)
       setUsedToday(log.count)
       setGemKey(await getGeminiUserKey())
+      setClaudeKey(await getClaudeUserKey())
       setCrmStagesState(await getCrmStages())
       setKColumns(await getKanbanColumns())
       void refreshGemini()
@@ -76,6 +78,7 @@ export function SettingsModal({
     const cleaned = templates.filter(t => t.title.trim() && t.body.trim())
     await saveSettings(settings)
     await setGeminiUserKey(gemKey)
+    await setClaudeUserKey(claudeKey)
     await refreshGemini()
     await saveTemplates(cleaned)
     setTemplates(cleaned)
@@ -127,8 +130,9 @@ export function SettingsModal({
     setGemTest({ busy: true })
     await saveSettings(settings!)
     await setGeminiUserKey(gemKey)
+    await setClaudeUserKey(claudeKey)
     const r = await sendToBackground<{ text: string }>({ type: 'GEMINI_TEST' })
-    setGemTest(r.ok ? { busy: false, ok: true, text: 'Conexão com o Gemini funcionando.' } : { busy: false, ok: false, text: r.message })
+    setGemTest(r.ok ? { busy: false, ok: true, text: r.data?.text ?? 'Conexão funcionando.' } : { busy: false, ok: false, text: r.message })
     void refreshGemini()
   }
 
@@ -267,7 +271,26 @@ export function SettingsModal({
 
         {tab === 'gemini' && (
         <section style={sectionStyle}>
-          <h3 style={h3}>Piloto Gemini (CRM)</h3>
+          <h3 style={h3}>IA do CRM (piloto e sugestões de mensagem)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <label style={labelStyle}>
+              IA principal
+              <select style={inputStyle} value={settings.aiProvider} onChange={e => setSettings({ ...settings, aiProvider: e.target.value as 'claude' | 'gemini' })}>
+                <option value="claude">Claude (Anthropic) — recomendado</option>
+                <option value="gemini">Gemini (Google)</option>
+              </select>
+            </label>
+            <label style={labelStyle}>
+              Modelo do Claude
+              <input style={inputStyle} value={settings.claudeModel} onChange={e => setSettings({ ...settings, claudeModel: e.target.value.trim() })} />
+            </label>
+          </div>
+          <label style={{ ...labelStyle, marginBottom: '10px' }}>
+            Chave do Claude (opcional se a extensão já veio com a do time)
+            <input type="password" autoComplete="off" style={inputStyle} value={claudeKey} placeholder="sk-ant-…" onChange={e => setClaudeKey(e.target.value)} />
+          </label>
+          <p style={{ ...help, margin: '0 0 10px' }}>Se a IA principal falhar (rede, limite, fora do ar), a extensão tenta a outra automaticamente, quando ela tiver chave.</p>
+          <h4 style={{ ...h3, fontSize: '12px', marginTop: '6px' }}>Gemini (reserva)</h4>
           <p style={{ ...help, margin: '0 0 10px' }}>
             O Gemini lê a tela do CRM e escolhe o próximo clique, como uma pessoa faria. A extensão valida cada ação: só grava depois de conferir o telefone do lead, digita ela mesma o comentário, respeita o modo teste e bloqueia ações perigosas (excluir, mover, enviar lead).
           </p>
@@ -295,16 +318,16 @@ export function SettingsModal({
             <input type="password" autoComplete="off" style={inputStyle} value={gemKey} placeholder="Cole aqui para usar a sua própria chave" onChange={e => setGemKey(e.target.value)} />
           </label>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
-            <button style={ghostBtn} onClick={testGemini} disabled={gemTest.busy}><Icon name="bolt" size={15} /> {gemTest.busy ? 'Testando…' : 'Testar Gemini'}</button>
+            <button style={ghostBtn} onClick={testGemini} disabled={gemTest.busy}><Icon name="bolt" size={15} /> {gemTest.busy ? 'Testando…' : 'Testar IA'}</button>
             {gemStatus && (
               <span style={{ fontSize: '12px', color: C.muted, fontWeight: 600 }}>
-                {gemStatus.configured ? `Chave: ${gemStatus.source === 'user' ? 'a sua' : 'do time'}` : 'Sem chave'} · hoje {gemStatus.usedToday}/{gemStatus.limit} chamadas
+                {gemStatus.configured ? `${gemStatus.provider === 'claude' ? 'Claude' : 'Gemini'} · chave ${gemStatus.source === 'user' ? 'sua' : 'do time'}` : 'Nenhuma IA com chave'} · hoje {gemStatus.usedToday}/{gemStatus.limit} chamadas
               </span>
             )}
           </div>
           {gemTest.text && <div style={{ ...(gemTest.ok ? {} : warnStyle), marginTop: '10px', fontSize: '12.5px', fontWeight: 600 }}>{gemTest.text}</div>}
           <div style={{ ...warnStyle, marginTop: '10px' }}>
-            Privacidade: a cada passo o Gemini (Google) recebe o texto da tela do CRM e, quando a aba está na frente, uma imagem, incluindo nome, telefone e anotações do lead. Use só com a ciência do time.
+            Privacidade: a cada passo a IA escolhida (Anthropic ou Google) recebe o texto da tela do CRM e, quando a aba está na frente, uma imagem, incluindo nome, telefone e anotações do lead. Use só com a ciência do time.
           </div>
         </section>
         )}

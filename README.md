@@ -6,10 +6,11 @@ Extensão de Chrome/Edge, na identidade visual da UP, que adiciona **agendamento
 
 > **Repositório privado:** antes de instalar, cada pessoa precisa do GitHub CLI (https://cli.github.com), de `gh auth login` e de acesso ao repositório (peça ao gestor).
 
-## Piloto Gemini (CRM)
+## IA do CRM: Claude Haiku 5.5 (padrão) e Gemini (reserva)
 
 No CRM Incbook o Gemini pode conduzir o registro da atividade (lê a tela e escolhe o próximo clique); a extensão valida cada ação (telefone do lead conferido, comentário definido pelo código, modo teste respeitado, ações perigosas bloqueadas).
 
+- Claude: `ANTHROPIC_API_KEY=...` no `.env.local` (modelo padrão `claude-haiku-5-5`, configurável). Se o Claude falhar, a extensão tenta o Gemini.
 - Chave do time embutida no build: crie `.env.local` na raiz (já ignorado pelo git) com `GEMINI_API_KEY=...` antes de `npm run build`/`npm run release`. O ZIP da release é público: restrinja a chave à Generative Language API e defina cota diária baixa no Google.
 - Chave individual: Configurações > Piloto Gemini > Chave do Gemini (guardada só no navegador, fora do backup).
 - A chave só é lida pelo service worker; as páginas do CRM e do WhatsApp nunca a veem.

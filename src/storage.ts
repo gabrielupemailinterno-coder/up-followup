@@ -29,6 +29,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   crmFirstType: '1 - Tentativa de contato',
   crmFollowupType: '4B - Follow-up realizado',
   crmAgent: 'pilot',
+  aiProvider: 'claude',
+  claudeModel: 'claude-haiku-5-5',
   geminiModel: 'gemini-flash-latest',
   geminiDailyLimit: 400,
   crmOwnerName: '',
@@ -55,6 +57,7 @@ const KEYS = {
   CRM_DRIVER_TAB: 'wm_crm_driver_tab',
   CRM_DIAG: 'wm_crm_diag',
   GEMINI_KEY: 'wm_gemini_key',
+  CLAUDE_KEY: 'wm_claude_key',
   GEMINI_USAGE: 'wm_gemini_usage',
   CRM_STAGES: 'wm_crm_stages',
 }
@@ -424,6 +427,16 @@ export async function getGeminiUserKey(): Promise<string> {
 export async function setGeminiUserKey(key: string): Promise<void> {
   if (key.trim()) await set(KEYS.GEMINI_KEY, key.trim())
   else await chrome.storage.local.remove(KEYS.GEMINI_KEY)
+}
+
+/** Chave do Claude digitada em Configurações (fora do backup, como a do Gemini). */
+export async function getClaudeUserKey(): Promise<string> {
+  return get<string>(KEYS.CLAUDE_KEY, '')
+}
+
+export async function setClaudeUserKey(key: string): Promise<void> {
+  if (key.trim()) await set(KEYS.CLAUDE_KEY, key.trim())
+  else await chrome.storage.local.remove(KEYS.CLAUDE_KEY)
 }
 
 export interface GeminiUsage { date: string; count: number }

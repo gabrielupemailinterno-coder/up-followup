@@ -140,7 +140,7 @@ function CrmPanelApp() {
       </button>
       {lead && !open && !hintSeen && (
         <div role="status" style={{ position: 'fixed', right: '48px', top: 'calc(38% + 14px)', zIndex: 2147483647, background: C.ink, color: '#fff', fontSize: '12px', fontWeight: 700, padding: '7px 10px', borderRadius: R.sm, boxShadow: SHADOW.dock, pointerEvents: 'none' }}>
-          Mensagem para {lead.name.split(/\s+/)[0] || 'o lead'} com o Gemini →
+          Mensagem para {lead.name.split(/\s+/)[0] || 'o lead'} com IA →
         </div>
       )}
 
@@ -168,7 +168,7 @@ function CrmPanelApp() {
               {!phone && <div style={{ ...errorStyle, marginTop: '10px' }}>Telefone inválido: corrija o número acima para poder enviar.</div>}
 
               <button style={{ ...primaryBtn(busy || !phone), width: '100%', marginTop: '12px' }} disabled={busy || !phone} onClick={suggest}>
-                <Icon name="bot" size={15} /> {busy ? 'Gemini pensando…' : items.length ? 'Sugerir outras 3' : 'Sugerir 3 mensagens com o Gemini'}
+                <Icon name="bot" size={15} /> {busy ? 'IA pensando…' : items.length ? 'Sugerir outras 3' : 'Sugerir 3 mensagens com IA'}
               </button>
               {error && <div style={{ ...errorStyle, marginTop: '10px' }}>{error}</div>}
 
@@ -199,7 +199,7 @@ function CrmPanelApp() {
                 </div>
               ))}
               <p style={{ fontSize: '11.5px', color: C.muted, margin: '10px 0 0', lineHeight: 1.5 }}>
-                As sugestões usam os dados do lead na tela (etapa, persona, tags e atividades), enviados ao Gemini (Google). Revise antes de enviar.
+                As sugestões usam os dados do lead na tela, enviados à IA configurada (Claude ou Gemini). Revise antes de enviar.
               </p>
             </>
           )}

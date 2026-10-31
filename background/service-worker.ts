@@ -40,10 +40,12 @@ import {
   setCrmDiag,
   todayKey,
   getGeminiUserKey,
+  getClaudeUserKey,
   getGeminiUsage,
   bumpGeminiUsage,
 } from '../src/storage'
 import { callGemini } from '../src/geminiApi'
+import { callClaude, type ClaudeSchema } from '../src/claudeApi'
 import { SUGGEST_SCHEMA, SUGGEST_SYSTEM, buildSuggestPrompt, parseSuggestions } from '../src/gemini'
 import {
   buildActivityComment, isDuplicate, makeDedupeKey, matchLeadByPhone, pickActivityType,
@@ -687,23 +689,54 @@ async function resolveGeminiKey(): Promise<{ key: string; source: 'user' | 'buil
   return built ? { key: built, source: 'build' } : { key: '', source: 'none' }
 }
 
-async function geminiStatus(): Promise<GeminiStatus> {
-  const [{ source }, settings, usage] = await Promise.all([resolveGeminiKey(), getSettings(), getGeminiUsage(todayKey())])
-  return { configured: source !== 'none', source, model: settings.geminiModel, usedToday: usage.count, limit: settings.geminiDailyLimit }
+async function resolveClaudeKey(): Promise<{ key: string; source: 'user' | 'build' | 'none' }> {
+  const user = (await getClaudeUserKey()).trim()
+  if (user) return { key: user, source: 'user' }
+  const built = typeof __ANTHROPIC_API_KEY__ === 'string' ? __ANTHROPIC_API_KEY__.trim() : ''
+  return built ? { key: built, source: 'build' } : { key: '', source: 'none' }
 }
 
-/** Chamada comum ao Gemini: só do CRM, com chave, limite diário e modelos de reserva (503/indisponível). */
+type Provider = 'claude' | 'gemini'
+
+/** IA a usar: a escolhida em Configurações; se ela não tem chave, a outra. */
+async function pickProvider(): Promise<{ provider: Provider; key: string; source: 'user' | 'build' | 'none'; other: { provider: Provider; key: string } }> {
+  const [settings, claude, gemini] = await Promise.all([getSettings(), resolveClaudeKey(), resolveGeminiKey()])
+  const first = settings.aiProvider === 'gemini' ? { provider: 'gemini' as const, ...gemini } : { provider: 'claude' as const, ...claude }
+  const second = settings.aiProvider === 'gemini' ? { provider: 'claude' as const, ...claude } : { provider: 'gemini' as const, ...gemini }
+  return first.key ? { ...first, other: second } : { ...second, other: { provider: first.provider, key: '' } }
+}
+
+async function geminiStatus(): Promise<GeminiStatus> {
+  const [p, settings, usage] = await Promise.all([pickProvider(), getSettings(), getGeminiUsage(todayKey())])
+  return { provider: p.provider, configured: p.source !== 'none', source: p.source, model: p.provider === 'claude' ? settings.claudeModel : settings.geminiModel, usedToday: usage.count, limit: settings.geminiDailyLimit }
+}
+
+type AiResult = { ok: true; text: string } | { ok: false; code: string; message: string }
+
+async function callGeminiWithFallbackModels(key: string, req: { system: string; prompt: string; schema?: object }, image?: string): Promise<AiResult> {
+  const settings = await getSettings()
+  const models = [...new Set([settings.geminiModel, 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash'])]
+  const call = (model: string) => callGemini({ key, model, system: req.system, prompt: req.prompt, imageJpegBase64: image, schema: req.schema })
+  let res = await call(models[0])
+  for (const m of models.slice(1)) {
+    if (res.ok || res.code === 'auth' || res.code === 'blocked') break
+    res = await call(m)
+  }
+  return res
+}
+
+/** Chamada comum à IA: só do CRM, com limite diário. Claude (Haiku 5.5) por padrão; se falhar por rede/limite, tenta a outra IA. */
 async function askGemini(
-  req: { system: string; prompt: string; wantScreenshot?: boolean; schema?: object },
+  req: { system: string; prompt: string; wantScreenshot?: boolean; schema?: object; kind?: ClaudeSchema },
   sender?: chrome.runtime.MessageSender
 ): Promise<{ ok: true; text: string } | { ok: false; reply: Reply }> {
   const fromCrm = !!sender?.tab?.url && sender.tab.url.startsWith(CRM_URL)
-  if (!fromCrm) return { ok: false, reply: fail('FORBIDDEN', 'Pedido ao Gemini só é aceito vindo do CRM.') }
-  const { key } = await resolveGeminiKey()
-  if (!key) return { ok: false, reply: fail('NO_KEY', 'O Gemini não tem chave configurada.') }
+  if (!fromCrm) return { ok: false, reply: fail('FORBIDDEN', 'Pedido à IA só é aceito vindo do CRM.') }
+  const p = await pickProvider()
+  if (!p.key) return { ok: false, reply: fail('NO_KEY', 'Nenhuma IA tem chave configurada (Configurações > IA).') }
   const settings = await getSettings()
   const today = todayKey()
-  if ((await getGeminiUsage(today)).count >= settings.geminiDailyLimit) return { ok: false, reply: fail('LIMIT', `Limite diário do Gemini atingido (${settings.geminiDailyLimit} chamadas).`) }
+  if ((await getGeminiUsage(today)).count >= settings.geminiDailyLimit) return { ok: false, reply: fail('LIMIT', `Limite diário da IA atingido (${settings.geminiDailyLimit} chamadas).`) }
 
   let image: string | undefined
   if (req.wantScreenshot && sender?.tab?.active && sender.tab.windowId !== undefined) {
@@ -713,13 +746,11 @@ async function askGemini(
     } catch { /* aba coberta ou sem permissão: segue só com o texto */ }
   }
   await bumpGeminiUsage(today)
-  const models = [...new Set([settings.geminiModel, 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash'])]
-  const call = (model: string) => callGemini({ key, model, system: req.system, prompt: req.prompt, imageJpegBase64: image, schema: req.schema })
-  let res = await call(models[0])
-  for (const m of models.slice(1)) {
-    if (res.ok || res.code === 'auth' || res.code === 'blocked') break
-    res = await call(m)
-  }
+  const run = (provider: Provider, key: string): Promise<AiResult> => provider === 'claude'
+    ? callClaude({ key, model: settings.claudeModel, system: req.system, prompt: req.prompt, schema: req.kind ?? 'action', imageJpegBase64: image })
+    : callGeminiWithFallbackModels(key, req, image)
+  let res = await run(p.provider, p.key)
+  if (!res.ok && p.other.key && res.code !== 'blocked') res = await run(p.other.provider, p.other.key)
   return res.ok ? { ok: true, text: res.text } : { ok: false, reply: fail(res.code.toUpperCase(), res.message) }
 }
 
@@ -732,24 +763,23 @@ async function geminiDecide(
 }
 
 async function geminiSuggest(payload: { lead: LeadContext; contactName?: string }, sender?: chrome.runtime.MessageSender): Promise<Reply> {
-  const r = await askGemini({ system: SUGGEST_SYSTEM, prompt: buildSuggestPrompt(payload.lead, payload.contactName), schema: SUGGEST_SCHEMA }, sender)
+  const r = await askGemini({ system: SUGGEST_SYSTEM, prompt: buildSuggestPrompt(payload.lead, payload.contactName), schema: SUGGEST_SCHEMA, kind: 'suggest' }, sender)
   if (!r.ok) return r.reply
   const messages = parseSuggestions(r.text)
   return messages ? { ok: true, data: { messages } } : fail('BAD_REPLY', 'O Gemini não devolveu 3 mensagens. Tente de novo.')
 }
 
 async function geminiTest(): Promise<Reply> {
-  const { key } = await resolveGeminiKey()
-  if (!key) return fail('NO_KEY', 'Nenhuma chave do Gemini configurada.')
+  const p = await pickProvider()
+  if (!p.key) return fail('NO_KEY', 'Nenhuma IA tem chave configurada.')
   const settings = await getSettings()
   await bumpGeminiUsage(todayKey())
-  const res = await callGemini({
-    key, model: settings.geminiModel,
-    system: 'Responda somente com o JSON pedido.',
-    prompt: 'Teste de conexão. Responda action="done" e reason="ok".',
-    timeoutMs: 15_000,
-  })
-  return res.ok ? { ok: true, data: { text: res.text.slice(0, 120) } } : fail(res.code.toUpperCase(), res.message)
+  const req = { system: 'Responda somente com o JSON pedido.', prompt: 'Teste de conexão. Responda action="done" e reason="ok".' }
+  const res = p.provider === 'claude'
+    ? await callClaude({ key: p.key, model: settings.claudeModel, ...req, schema: 'action', timeoutMs: 20_000 })
+    : await callGemini({ key: p.key, model: settings.geminiModel, ...req, timeoutMs: 15_000 })
+  const name = p.provider === 'claude' ? `Claude (${settings.claudeModel})` : `Gemini (${settings.geminiModel})`
+  return res.ok ? { ok: true, data: { text: `Conexão com ${name} funcionando.` } } : fail(res.code.toUpperCase(), `${name}: ${res.message}`)
 }
 
 // ─── Mensagens (popup / kanban / content) ─────────────────────────────────────

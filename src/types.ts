@@ -81,7 +81,9 @@ export interface AppSettings {
   crmDryRun: boolean            // modo teste: preenche o formulário mas NÃO envia
   crmFirstType: string          // tipo de atividade da 1ª mensagem ao lead
   crmFollowupType: string       // tipo de atividade dos envios seguintes
-  crmAgent: CrmAgentMode        // piloto Gemini no CRM
+  crmAgent: CrmAgentMode        // piloto de IA no CRM
+  aiProvider: 'claude' | 'gemini'   // qual IA conduz o piloto e sugere mensagens
+  claudeModel: string           // modelo do Claude (padrão Haiku 5.5)
   geminiModel: string           // modelo do Gemini usado pelo piloto
   geminiDailyLimit: number      // máximo de chamadas ao Gemini por dia
   crmOwnerName: string          // "Com quem está" do corretor no CRM (sincroniza só os leads dele)
@@ -93,6 +95,8 @@ export interface AppSettings {
 export type CrmAgentMode = 'off' | 'fallback' | 'pilot'
 
 export interface GeminiStatus {
+  /** IA em uso agora (a escolhida, ou a outra se a escolhida não tem chave) */
+  provider: 'claude' | 'gemini'
   configured: boolean
   source: 'user' | 'build' | 'none'
   model: string

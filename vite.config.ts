@@ -5,11 +5,12 @@ import { resolve } from 'path'
 import manifest from './manifest.json'
 
 export default defineConfig(({ mode }) => {
-  // GEMINI_API_KEY vem de .env.local (fora do git) ou do ambiente; só o service worker usa.
+  // GEMINI_API_KEY e ANTHROPIC_API_KEY vêm de .env.local (fora do git) ou do ambiente; só o service worker usa.
   const env = loadEnv(mode, process.cwd(), '')
   return {
     define: {
       __GEMINI_API_KEY__: JSON.stringify(env.GEMINI_API_KEY ?? ''),
+      __ANTHROPIC_API_KEY__: JSON.stringify(env.ANTHROPIC_API_KEY ?? ''),
     },
     plugins: [
       react(),
