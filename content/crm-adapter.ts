@@ -202,7 +202,13 @@ export function describeCrmPage(): string {
   ].join(' · ')
 }
 
-export function createCrmAdapter(): CrmPageAdapter {
+/** Telefone mascarado para diagnóstico: só DDD e 4 últimos dígitos. */
+function maskPhone(raw: string): string {
+  const d = raw.replace(/\D/g, '')
+  return d.length < 6 ? '#'.repeat(d.length) : `${d.slice(0, 2)}…${d.slice(-4)}`
+}
+
+export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmPageAdapter {
   return {
     path: () => location.pathname.replace(/\/+$/, '') || '/',
 
@@ -216,14 +222,20 @@ export function createCrmAdapter(): CrmPageAdapter {
 
     async searchLeadsByPhone(query) {
       const input = await waitFor(() => document.querySelector<HTMLInputElement>(SEL.leadsSearch), 10_000)
-      if (!input) return []
+      if (!input) {
+        trace('campo de busca da tela Leads não apareceu em 10 s')
+        return []
+      }
       const sig = (arr: AnyObj[] | null) => (arr ?? []).map(l => l.id).join(',')
       const before = sig(readLeadsArray())
       setInputValue(input, query)
       // espera a lista mudar em relação à anterior (evita ler resultado velho)
-      await waitFor(() => (sig(readLeadsArray()) !== before ? true : null), 7000, 250)
+      const changed = await waitFor(() => (sig(readLeadsArray()) !== before ? true : null), 7000, 250)
       await sleep(600)
-      return (readLeadsArray() ?? []).map<LeadHit>(l => ({ id: String(l.id), name: String(l.nome ?? ''), phones: phoneStrings(l) }))
+      const list = readLeadsArray() ?? []
+      const phones = list.slice(0, 6).map(l => phoneStrings(l).map(maskPhone).join('/') || 'sem telefone')
+      trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 7 s'} · ${list.length} resultado(s)${phones.length ? ' · telefones: ' + phones.join(', ') : ''}`)
+      return list.map<LeadHit>(l => ({ id: String(l.id), name: String(l.nome ?? ''), phones: phoneStrings(l) }))
     },
 
     async openLeadCard(leadId, leadName) {

@@ -61,11 +61,18 @@ export async function runJobStep(
     let reliable = false
     for (const q of queries) {
       const hits = await page.searchLeadsByPhone(q)
-      matching = hits.filter(h => h.phones.some(p => samePhone(p, job.phone)))
-      reliable = hits.length < CRM_PAGE_SIZE
-      if (reliable) break
+      const found = hits.filter(h => h.phones.some(p => samePhone(p, job.phone)))
+      const complete = hits.length < CRM_PAGE_SIZE
+      if (found.length > 0) {
+        matching = found
+        reliable = complete
+        if (complete) break          // achou e a lista não veio cortada: confiável
+      }
+      // sem resultado (ou lista cortada): tenta a próxima consulta, mais específica ou em outro formato
     }
-    if (matching.length === 0) return fail(`Lead não encontrado no CRM com o telefone ${shown}.`)
+    if (matching.length === 0) {
+      return fail(`Lead não encontrado entre os leads deste usuário no CRM (telefone ${shown}, buscado de ${queries.length} formas). Confira se o lead existe, se é seu e qual telefone está cadastrado.`)
+    }
     if (matching.length > 1) {
       return { kind: 'finished', status: 'skipped', message: `Há ${matching.length} leads com o telefone ${shown}. Registre manualmente para não errar o lead.` }
     }

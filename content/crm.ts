@@ -78,8 +78,10 @@ function banner(text: string | null) {
   el.textContent = `Follow-up UP · ${text}`
 }
 
+let activeJobId: string | null = null
+
 async function runDriver() {
-  const adapter = createCrmAdapter()
+  const adapter = createCrmAdapter(text => { if (activeJobId) void appendCrmTrace(activeJobId, text).catch(() => {}) })
   await sleep(2500) // dá tempo da página do CRM terminar de montar
 
   while (extensionAlive()) {
@@ -101,6 +103,7 @@ async function runDriver() {
     }
     job = (await patchCrmJob(job.id, { status: 'running', attempts: job.attempts + 1 })) ?? job
     const jobId = job.id
+    activeJobId = jobId
     let lastStep = 'iniciando'
     const note = (text: string, asMessage: boolean) => {
       lastStep = text
