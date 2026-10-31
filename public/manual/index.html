@@ -108,7 +108,7 @@
               <li>Pressione <span class="kbd">⌘</span> + <span class="kbd">Espaço</span>, digite <strong>Terminal</strong> e pressione <span class="kbd">Enter</span>.</li>
               <li>Copie o comando abaixo, cole no Terminal (<span class="kbd">⌘</span> + <span class="kbd">V</span>) e pressione <span class="kbd">Enter</span>:</li>
             </ol>
-            <div class="cmd"><span>curl -fsSL https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.sh | bash</span><button type="button">Copiar</button></div>
+            <div class="cmd"><span>gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.sh -H "Accept: application/vnd.github.raw" | bash</span><button type="button">Copiar</button></div>
             <p>A extensão fica em <code>/Users/SEU_USUARIO/UP-Followup</code>.</p>
           </div>
           <div class="tabpanel" role="tabpanel" id="t-win" data-title="Windows">
@@ -116,10 +116,10 @@
               <li>Clique no menu Iniciar, digite <strong>PowerShell</strong> e abra o <em>Windows PowerShell</em>.</li>
               <li>Copie o comando abaixo, cole na janela (clique com o botão direito) e pressione <span class="kbd">Enter</span>:</li>
             </ol>
-            <div class="cmd"><span>irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex</span><button type="button">Copiar</button></div>
+            <div class="cmd"><span>gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.ps1 -H "Accept: application/vnd.github.raw" | iex</span><button type="button">Copiar</button></div>
             <p>A extensão fica em <code>C:\Users\SEU_USUARIO\UP-Followup</code>.</p>
             <div class="callout warn"><div><b class="h">Use o PowerShell, não o Prompt de Comando</b><p>Se aparecer “irm não é reconhecido como um comando interno”, você abriu o <em>Prompt de Comando</em> (tela preta). Abra o <em>Windows PowerShell</em> (ícone azul). Se preferir continuar no Prompt de Comando, use este comando, que chama o PowerShell por dentro:</p></div></div>
-            <div class="cmd"><span>powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex"</span><button type="button">Copiar</button></div>
+            <div class="cmd"><span>powershell -NoProfile -ExecutionPolicy Bypass -Command "gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.ps1 -H 'Accept: application/vnd.github.raw' | iex"</span><button type="button">Copiar</button></div>
           </div>
         </div>
 

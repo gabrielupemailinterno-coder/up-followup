@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Instalador do Follow-up UP (macOS e Linux).
 #
-#   curl -fsSL https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.sh | bash
+#   gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.sh -H "Accept: application/vnd.github.raw" | bash
+#   (repositório privado: exige o GitHub CLI logado com `gh auth login`)
 #
 # Baixa a versão mais recente (GitHub Releases) e extrai em ~/UP-Followup.
 # Rode o mesmo comando de novo para atualizar. Não precisa de Node nem de Git.
@@ -29,7 +30,8 @@ say()  { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!!\033[0m  %s\n' "$*"; }
 die()  { printf '\033[1;31mErro:\033[0m %s\n' "$*" >&2; exit 1; }
 
-command -v curl  >/dev/null 2>&1 || die "curl não encontrado. Instale o curl e tente de novo."
+command -v gh    >/dev/null 2>&1 || die "GitHub CLI (gh) não encontrado. Instale em https://cli.github.com e rode 'gh auth login' com a conta que tem acesso ao repositório."
+gh auth status   >/dev/null 2>&1 || die "Você não está logado no GitHub CLI. Rode 'gh auth login' e tente de novo."
 command -v unzip >/dev/null 2>&1 || die "unzip não encontrado. Instale o unzip e tente de novo."
 
 # Segurança: nunca limpar uma pasta que não seja uma instalação anterior.
@@ -45,14 +47,14 @@ trap 'rm -rf "$TMP"' EXIT
 
 version_of() { sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$1" | head -1; }
 
+# Repositório privado: o download usa o GitHub CLI autenticado (gh release download).
+TAG_ARGS=()
 if [ -n "${UP_FOLLOWUP_TAG:-}" ]; then
-  URL="https://github.com/$REPO/releases/download/$UP_FOLLOWUP_TAG/$ASSET"
+  TAG_ARGS=("$UP_FOLLOWUP_TAG")
   say "Versão pedida: $UP_FOLLOWUP_TAG"
-else
-  URL="https://github.com/$REPO/releases/latest/download/$ASSET"
 fi
 say "Baixando a versão mais recente…"
-curl -fL --progress-bar -o "$TMP/$ASSET" "$URL" || die "Não consegui baixar $URL. Verifique a internet e se já existe uma release publicada."
+gh release download ${TAG_ARGS[@]+"${TAG_ARGS[@]}"} --repo "$REPO" --pattern "$ASSET" --dir "$TMP" --clobber || die "Não consegui baixar a release. Verifique a internet, o 'gh auth login' e se a sua conta tem acesso ao repositório."
 
 mkdir "$TMP/x"
 unzip -q "$TMP/$ASSET" -d "$TMP/x" || die "Falha ao extrair o ZIP."
