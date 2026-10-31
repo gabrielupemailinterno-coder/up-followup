@@ -109,7 +109,7 @@ export function validateAction(raw: unknown, snap: Snapshot, ctx: ValidationCont
   // type
   const text = typeof r.text === 'string' ? r.text : ''
   if (el.kind === 'search') {
-    if (!/^[\d()\-\s]{2,20}$/.test(text)) return bad('type', 'Na busca só dá para digitar números do telefone.')
+    if (text.trim() !== ctx.phone.slice(-4)) return bad('type', `Na busca digite somente os 4 últimos dígitos do telefone (${ctx.phone.slice(-4)}).`)
     action.text = text
     return { ok: true, action, element: el }
   }
