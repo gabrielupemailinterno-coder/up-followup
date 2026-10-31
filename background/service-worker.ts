@@ -614,10 +614,10 @@ async function kickCrmDriverNow(force: boolean) {
     const oldest = Math.min(...open.map(j => j.createdAt))
     if (Date.now() - oldest < CRM_BATCH_MS) return
   }
-  // Janela pequena e visível (sem roubar o foco): o Chrome PAUSA a renderização de abas em segundo plano,
-  // e o CRM (React) não atualiza a lista de leads enquanto a aba está escondida.
+  // Janela na FRENTE: o Chrome PAUSA a renderização de abas escondidas ou cobertas por outras janelas,
+  // e o CRM (React) não atualiza a lista de leads nesse estado. Ela fecha sozinha ao terminar.
   try {
-    const win = await chrome.windows.create({ url: `${CRM_URL}/leads`, type: 'popup', focused: false, width: 1000, height: 760, left: 20, top: 40 })
+    const win = await chrome.windows.create({ url: `${CRM_URL}/leads`, type: 'popup', focused: true, width: 1000, height: 760, left: 60, top: 60 })
     const id = win.tabs?.[0]?.id
     if (id !== undefined) await setCrmDriverTab(id)
   } catch {
@@ -692,7 +692,13 @@ async function geminiDecide(
     } catch { /* aba coberta ou sem permissão: segue só com o texto */ }
   }
   await bumpGeminiUsage(today)
-  const res = await callGemini({ key, model: settings.geminiModel, system: payload.system, prompt: payload.prompt, imageJpegBase64: image })
+  // Modelo com demanda alta (503) ou indisponível: tenta os próximos da lista.
+  const models = [...new Set([settings.geminiModel, 'gemini-2.5-flash', 'gemini-2.0-flash'])]
+  let res = await callGemini({ key, model: models[0], system: payload.system, prompt: payload.prompt, imageJpegBase64: image })
+  for (const m of models.slice(1)) {
+    if (res.ok || res.code === 'auth' || res.code === 'blocked') break
+    res = await callGemini({ key, model: m, system: payload.system, prompt: payload.prompt, imageJpegBase64: image })
+  }
   return res.ok ? { ok: true, data: { text: res.text } } : fail(res.code.toUpperCase(), res.message)
 }
 

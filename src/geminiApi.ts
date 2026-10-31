@@ -49,7 +49,7 @@ export async function callGemini(c: GeminiCall): Promise<GeminiResult> {
   })
 
   let last: GeminiResult = { ok: false, code: 'network', message: 'Sem resposta do Gemini.' }
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const ctl = new AbortController()
     const timer = setTimeout(() => ctl.abort(), c.timeoutMs ?? 45_000)
     try {
@@ -62,7 +62,7 @@ export async function callGemini(c: GeminiCall): Promise<GeminiResult> {
       const data = (await res.json().catch(() => null)) as GeminiBody | null
       if (!res.ok) {
         last = mapHttpError(res.status, data)
-        if (res.status >= 500) { await new Promise(r => setTimeout(r, 1000)); continue }
+        if (res.status >= 500) { await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); continue }
         return last
       }
       const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? ''

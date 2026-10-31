@@ -185,6 +185,7 @@ export function describeCrmPage(): string {
   const count = (sel: string) => document.querySelectorAll(sel).length
   return [
     `tela=${location.pathname}`,
+    `aba=${document.hidden ? 'escondida' : 'visível'}`,
     `botões Detalhes=${detailsButtons().length}`,
     `busca de Leads=${count(SEL.leadsSearch) > 0 ? 'sim' : 'não'}`,
     `busca do Funil=${count(SEL.funilSearch) > 0 ? 'sim' : 'não'}`,
@@ -225,7 +226,7 @@ export function rowNameButton(row: HTMLElement): HTMLElement | null {
 
 /** "22.770 Leads Filtradas" do cabeçalho: muda quando o filtro da busca é aplicado. */
 export function filteredCountText(): string {
-  const m = (document.body.textContent ?? '').match(/([\d.]+)\s+Leads\s+Filtradas/i)
+  const m = (document.body.textContent ?? '').match(/([\d.]+)\s*Leads\s*Filtradas/i)
   return m ? m[1] : ''
 }
 
@@ -271,6 +272,8 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
       await waitFor(() => (!tableBusy() ? true : null), 5000, 250)
       await sleep(600)
       const count = leadRows().length
+      const q = (sel: string) => document.querySelectorAll(sel).length
+      trace(`página: ${document.hidden ? 'ESCONDIDA (o Chrome pausa a tela)' : 'visível'} · tr=${q('tr')} role=row=${q('[role="row"]')} li=${q('li')} .ant-table-row=${q('.ant-table-row')} botões=${q('button')} · texto da página=${(document.body.innerText ?? '').length} caracteres`)
       trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 15 s'} · ${filteredCountText() || '?'} filtrados · ${count} linha(s)`)
       return count
     },
