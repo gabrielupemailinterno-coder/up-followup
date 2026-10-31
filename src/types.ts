@@ -203,6 +203,19 @@ export interface CrmJob {
   updatedAt: number
 }
 
+/** Dados do lead aberto no CRM, lidos da tela (para o Gemini sugerir mensagens). */
+export interface LeadContext {
+  name: string
+  phones: string[]
+  stage: string | null
+  persona: string | null
+  campaign: string | null
+  temperature: string | null
+  tags: string[]
+  activities: number | null
+  timeline: string[]
+}
+
 /** Resultado da última tentativa de enfileirar uma atividade do CRM (para explicar o que aconteceu). */
 export interface CrmDiag {
   at: number
@@ -256,6 +269,7 @@ export type BackgroundMessage =
   | { type: 'GEMINI_DECIDE'; payload: { system: string; prompt: string; wantScreenshot?: boolean } }
   | { type: 'GEMINI_STATUS' }
   | { type: 'GEMINI_TEST' }
+  | { type: 'GEMINI_SUGGEST'; payload: { lead: LeadContext; contactName?: string } }
 
 export type Reply<T = unknown> =
   | { ok: true; data?: T }

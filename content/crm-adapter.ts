@@ -4,7 +4,7 @@
  * Nunca lê nem usa credenciais: só a tela e as propriedades React dos cards.
  */
 
-import type { CrmLead } from '../src/types'
+import type { CrmLead, LeadContext } from '../src/types'
 import { normalizePhone } from '../src/phone'
 import type { CrmPageAdapter } from '../src/crmDriver'
 
@@ -255,6 +255,50 @@ export function readPhonesIn(root: ParentNode): string[] {
     if (/^\+?\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/.test(t)) out.add(t)
   }
   return [...out]
+}
+
+/** Valor de um campo do painel pelo rótulo (ex.: "Etapa", "Persona"): texto do seletor, do campo ou do vizinho. */
+export function fieldByLabel(root: ParentNode, label: RegExp): string | null {
+  const lab = [...root.querySelectorAll<HTMLElement>('label, span, div, p, h4, h5')]
+    .find(e => e.children.length <= 1 && label.test((e.textContent ?? '').trim()))
+  for (let box: HTMLElement | null = lab?.parentElement ?? null, i = 0; box && i < 3; box = box.parentElement, i++) {
+    const items = [...box.querySelectorAll('.ant-select-selection-item')].map(x => (x.textContent ?? '').trim()).filter(Boolean)
+    if (items.length) return items.join(', ')
+    const input = box.querySelector<HTMLInputElement>('input:not([type="checkbox"])')
+    if (input?.value) return input.value
+  }
+  return null
+}
+
+/** Dados do lead aberto ("Informações do Lead"), lidos da tela. null se não houver painel aberto. */
+export function readLeadContext(): LeadContext | null {
+  const root = modalEl()
+  if (!root || !/informa[cç][oõ]es do lead/i.test(root.textContent ?? '')) return null
+  const clean = (t: string | null | undefined) => (t ?? '').replace(/\s+/g, ' ').trim()
+  const nameInput = [...root.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')].find(i => i.value && !/\d{4}/.test(i.value))
+  // linha do tempo: cada atividade começa com o tipo ("1 - Tentativa de contato", "4B - Follow-up realizado")
+  const timeline: string[] = []
+  for (const el of root.querySelectorAll<HTMLElement>('span, div, p, strong')) {
+    if (el.children.length > 0) continue
+    if (!/^\d+[A-Z]?\s-\s/.test(clean(el.textContent))) continue
+    const block = el.parentElement?.parentElement ?? el
+    const text = clean(block.textContent).slice(0, 220)
+    if (text && !timeline.includes(text) && !block.closest('.ant-select-dropdown, .ant-select')) timeline.push(text)
+  }
+  const tags = [...root.querySelectorAll<HTMLElement>('.ant-tag')].map(t => clean(t.textContent)).filter(Boolean)
+  const count = [...root.querySelectorAll<HTMLElement>('button, [role="tab"], div, span, li')]
+    .map(e => clean(e.textContent).match(/^Todas\s*(\d+)$/i)).find(Boolean)
+  return {
+    name: clean(nameInput?.value) || '',
+    phones: readPhonesIn(root),
+    stage: fieldByLabel(root, /^etapa$/i),
+    persona: fieldByLabel(root, /^persona$/i),
+    campaign: fieldByLabel(root, /^campanha de aquisi[cç][aã]o$/i),
+    temperature: fieldByLabel(root, /^temperatura$/i),
+    tags,
+    activities: count ? Number(count[1]) : null,
+    timeline: timeline.slice(0, 8),
+  }
 }
 
 const tableBusy = () => !!document.querySelector('.ant-spin-spinning, .ant-table-spin-holder .ant-spin')

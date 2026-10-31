@@ -44,13 +44,14 @@ import {
   bumpGeminiUsage,
 } from '../src/storage'
 import { callGemini } from '../src/geminiApi'
+import { SUGGEST_SCHEMA, SUGGEST_SYSTEM, buildSuggestPrompt, parseSuggestions } from '../src/gemini'
 import {
   buildActivityComment, isDuplicate, makeDedupeKey, matchLeadByPhone, pickActivityType,
 } from '../src/crm'
 import { renderTemplate } from '../src/templates'
 import { nextMorning, pickVariantIndex, randomDelayMs } from '../src/campaign'
 import type {
-  ActiveSend, BackgroundMessage, Campaign, CrmJob, GeminiStatus, Recurrence, Reply, ScheduledMessage, Task,
+  ActiveSend, BackgroundMessage, Campaign, CrmJob, GeminiStatus, LeadContext, Recurrence, Reply, ScheduledMessage, Task,
 } from '../src/types'
 
 const ALARM_PREFIX = 'wm_msg_'
@@ -674,35 +675,50 @@ async function geminiStatus(): Promise<GeminiStatus> {
   return { configured: source !== 'none', source, model: settings.geminiModel, usedToday: usage.count, limit: settings.geminiDailyLimit }
 }
 
-async function geminiDecide(
-  payload: { system: string; prompt: string; wantScreenshot?: boolean },
+/** Chamada comum ao Gemini: só do CRM, com chave, limite diário e modelos de reserva (503/indisponível). */
+async function askGemini(
+  req: { system: string; prompt: string; wantScreenshot?: boolean; schema?: object },
   sender?: chrome.runtime.MessageSender
-): Promise<Reply> {
-  // Só as páginas do CRM (e a própria extensão) podem pedir decisões ao Gemini.
+): Promise<{ ok: true; text: string } | { ok: false; reply: Reply }> {
   const fromCrm = !!sender?.tab?.url && sender.tab.url.startsWith(CRM_URL)
-  if (!fromCrm) return fail('FORBIDDEN', 'Pedido ao Gemini só é aceito vindo do CRM.')
+  if (!fromCrm) return { ok: false, reply: fail('FORBIDDEN', 'Pedido ao Gemini só é aceito vindo do CRM.') }
   const { key } = await resolveGeminiKey()
-  if (!key) return fail('NO_KEY', 'O Gemini não tem chave configurada.')
+  if (!key) return { ok: false, reply: fail('NO_KEY', 'O Gemini não tem chave configurada.') }
   const settings = await getSettings()
   const today = todayKey()
-  if ((await getGeminiUsage(today)).count >= settings.geminiDailyLimit) return fail('LIMIT', `Limite diário do Gemini atingido (${settings.geminiDailyLimit} chamadas).`)
+  if ((await getGeminiUsage(today)).count >= settings.geminiDailyLimit) return { ok: false, reply: fail('LIMIT', `Limite diário do Gemini atingido (${settings.geminiDailyLimit} chamadas).`) }
 
   let image: string | undefined
-  if (payload.wantScreenshot && sender?.tab?.active && sender.tab.windowId !== undefined) {
+  if (req.wantScreenshot && sender?.tab?.active && sender.tab.windowId !== undefined) {
     try {
       const url = await chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'jpeg', quality: 60 })
       image = url.split(',')[1]
     } catch { /* aba coberta ou sem permissão: segue só com o texto */ }
   }
   await bumpGeminiUsage(today)
-  // Modelo com demanda alta (503) ou indisponível: tenta os próximos da lista.
   const models = [...new Set([settings.geminiModel, 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash'])]
-  let res = await callGemini({ key, model: models[0], system: payload.system, prompt: payload.prompt, imageJpegBase64: image })
+  const call = (model: string) => callGemini({ key, model, system: req.system, prompt: req.prompt, imageJpegBase64: image, schema: req.schema })
+  let res = await call(models[0])
   for (const m of models.slice(1)) {
     if (res.ok || res.code === 'auth' || res.code === 'blocked') break
-    res = await callGemini({ key, model: m, system: payload.system, prompt: payload.prompt, imageJpegBase64: image })
+    res = await call(m)
   }
-  return res.ok ? { ok: true, data: { text: res.text } } : fail(res.code.toUpperCase(), res.message)
+  return res.ok ? { ok: true, text: res.text } : { ok: false, reply: fail(res.code.toUpperCase(), res.message) }
+}
+
+async function geminiDecide(
+  payload: { system: string; prompt: string; wantScreenshot?: boolean },
+  sender?: chrome.runtime.MessageSender
+): Promise<Reply> {
+  const r = await askGemini(payload, sender)
+  return r.ok ? { ok: true, data: { text: r.text } } : r.reply
+}
+
+async function geminiSuggest(payload: { lead: LeadContext; contactName?: string }, sender?: chrome.runtime.MessageSender): Promise<Reply> {
+  const r = await askGemini({ system: SUGGEST_SYSTEM, prompt: buildSuggestPrompt(payload.lead, payload.contactName), schema: SUGGEST_SCHEMA }, sender)
+  if (!r.ok) return r.reply
+  const messages = parseSuggestions(r.text)
+  return messages ? { ok: true, data: { messages } } : fail('BAD_REPLY', 'O Gemini não devolveu 3 mensagens. Tente de novo.')
 }
 
 async function geminiTest(): Promise<Reply> {
@@ -837,6 +853,8 @@ async function handle(msg: BackgroundMessage, sender?: chrome.runtime.MessageSen
       return geminiDecide(msg.payload, sender)
     case 'GEMINI_TEST':
       return geminiTest()
+    case 'GEMINI_SUGGEST':
+      return geminiSuggest(msg.payload, sender)
 
     case 'WPP_STATUS': {
       const tabs = await chrome.tabs.query({ url: 'https://web.whatsapp.com/*' })

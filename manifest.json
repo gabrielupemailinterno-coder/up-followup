@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WhatsApp Web Mod",
-  "version": "1.7.8",
+  "version": "1.8.0",
   "description": "Agendamento de follow-ups e Kanban de leads para o WhatsApp Web",
   "permissions": [
     "storage",
@@ -61,7 +61,8 @@
         "brand/*"
       ],
       "matches": [
-        "https://web.whatsapp.com/*"
+        "https://web.whatsapp.com/*",
+        "https://crm.incbook.com.br/*"
       ]
     }
   ]

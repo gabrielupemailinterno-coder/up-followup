@@ -5,6 +5,7 @@
  */
 
 import { formatPhoneForCrm } from './crm'
+import type { LeadContext } from './types'
 
 export type ElementKind =
   | 'search' | 'select' | 'select-search' | 'editor' | 'option' | 'submit' | 'close' | 'button' | 'link' | 'tab' | 'input'
@@ -195,4 +196,42 @@ export function buildAgentPrompt(goal: AgentGoal, snap: Snapshot, state: FormSta
 export function parseAgentReply(text: string): unknown {
   const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
   try { return JSON.parse(t) } catch { return null }
+}
+
+// ─── Sugestões de mensagem (painel UP no CRM) ─────────────────────────────────
+
+export const SUGGEST_SYSTEM = [
+  'Você é um corretor da UP Consultoria Imobiliária (Brasil) escrevendo mensagens de WhatsApp para um lead.',
+  'Padrão comercial da UP: tom consultivo e humano, frases curtas, sem pressão, sem promessas de preço ou aprovação, sem emojis em excesso (no máximo 1), sempre terminando com uma pergunta simples que convide a responder.',
+  'Use o primeiro nome do lead. Não invente fatos que não estão nos dados. Escreva em português do Brasil.',
+  'Gere exatamente 3 mensagens diferentes entre si: 1) retomada leve da conversa, 2) valor/benefício ligado ao perfil do lead, 3) convite para próximo passo (conversa rápida, simulação ou visita).',
+  'Cada mensagem com no máximo 4 linhas. Responda somente com o JSON pedido.',
+].join('\n')
+
+export const SUGGEST_SCHEMA = {
+  type: 'OBJECT',
+  properties: { messages: { type: 'ARRAY', items: { type: 'STRING' } } },
+  required: ['messages'],
+}
+
+export function buildSuggestPrompt(lead: LeadContext, contactName?: string): string {
+  const first = (lead.name || contactName || '').trim().split(/\s+/)[0] || ''
+  return [
+    `LEAD: ${lead.name || contactName || 'sem nome'} (primeiro nome: ${first || '?'})`,
+    `Etapa no funil: ${lead.stage ?? '?'} · Temperatura: ${lead.temperature ?? '?'} · Persona: ${lead.persona ?? '?'} · Campanha de aquisição: ${lead.campaign ?? '?'}`,
+    `Tags: ${lead.tags.length ? lead.tags.join(', ') : 'nenhuma'} · Atividades registradas: ${lead.activities ?? '?'}`,
+    'Últimas atividades (mais recentes primeiro):',
+    ...(lead.timeline.length ? lead.timeline.slice(0, 6).map(t => `- ${t}`) : ['- nenhuma']),
+    '',
+    'Escreva as 3 mensagens.',
+  ].join('\n')
+}
+
+/** Exatamente 3 mensagens não vazias, cortadas num tamanho razoável; senão null. */
+export function parseSuggestions(text: string): string[] | null {
+  const raw = parseAgentReply(text) as { messages?: unknown } | null
+  const list = Array.isArray(raw?.messages) ? raw!.messages : null
+  if (!list) return null
+  const msgs = list.filter((m): m is string => typeof m === 'string').map(m => m.trim()).filter(Boolean).map(m => m.slice(0, 700))
+  return msgs.length >= 3 ? msgs.slice(0, 3) : null
 }

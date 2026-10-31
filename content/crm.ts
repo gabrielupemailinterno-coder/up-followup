@@ -13,6 +13,8 @@ import { runJobStep, type CrmPageAdapter, type StepResult } from '../src/crmDriv
 import { geminiReady, runGeminiPilot } from './crm-agent'
 import { createCrmAdapter, describeCrmPage, leadsFromFunilPage, leadsFromLeadsPage, sleep, waitFor } from './crm-adapter'
 import { extensionAlive, safeInterval } from '../src/alive'
+import { fontFaceCss } from '../src/theme'
+import { mountCrmPanel } from './CrmPanel'
 
 const MAX_PAGE_LOADS_PER_JOB = 6
 const RUNNING_TIMEOUT_MS = 4 * 60_000
@@ -193,11 +195,23 @@ async function runDriver() {
   }
 }
 
+/** Painel UP (mensagens sugeridas pelo Gemini) nas abas normais do CRM. */
+function startPanel() {
+  if (!document.getElementById('wm-fonts')) {
+    const style = document.createElement('style')
+    style.id = 'wm-fonts'
+    style.textContent = fontFaceCss(file => chrome.runtime.getURL(file))
+    document.head.appendChild(style)
+  }
+  mountCrmPanel()
+}
+
 // ─── Início ───────────────────────────────────────────────────────────────────
 
 startReader()
 void sendToBackground<{ driver: boolean }>({ type: 'CRM_WHO_AM_I' })
   .then(r => {
     if (r.ok && r.data?.driver) void runDriver().catch(() => { /* extensão recarregada: este script é órfão */ })
+    else startPanel()
   })
   .catch(() => {})

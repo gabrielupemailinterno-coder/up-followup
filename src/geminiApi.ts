@@ -13,6 +13,8 @@ export interface GeminiCall {
   system: string
   prompt: string
   imageJpegBase64?: string
+  /** Esquema da resposta JSON (padrão: uma ação do piloto). */
+  schema?: object
   timeoutMs?: number
   fetchImpl?: typeof fetch
 }
@@ -45,7 +47,7 @@ export async function callGemini(c: GeminiCall): Promise<GeminiResult> {
   const body = JSON.stringify({
     systemInstruction: { parts: [{ text: c.system }] },
     contents: [{ role: 'user', parts }],
-    generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: GEMINI_RESPONSE_SCHEMA },
+    generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: c.schema ?? GEMINI_RESPONSE_SCHEMA },
   })
 
   let last: GeminiResult = { ok: false, code: 'network', message: 'Sem resposta do Gemini.' }
