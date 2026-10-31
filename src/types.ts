@@ -34,6 +34,8 @@ export interface KanbanCard {
   columnId: string
   columnChangedAt: number
   columnHistory: ColumnChange[]
+  /** Última etapa conhecida do lead no CRM (sincronização): evita mover de volta o que já está igual. */
+  crmStage?: string
   tags: string[]
   notes: string
   lastMessage: string
@@ -82,6 +84,9 @@ export interface AppSettings {
   crmAgent: CrmAgentMode        // piloto Gemini no CRM
   geminiModel: string           // modelo do Gemini usado pelo piloto
   geminiDailyLimit: number      // máximo de chamadas ao Gemini por dia
+  crmOwnerName: string          // "Com quem está" do corretor no CRM (sincroniza só os leads dele)
+  crmStageMap: Record<string, string>   // etapa do CRM (normalizada) → id da coluna do Kanban
+  crmSyncMaxPages: number       // teto de páginas da tela Leads lidas na sincronização
 }
 
 /** off = só o fluxo fixo · fallback = fluxo fixo e, se falhar antes de gravar, o Gemini tenta · pilot = o Gemini conduz */
@@ -182,8 +187,14 @@ export interface CrmTraceEntry {
   text: string
 }
 
+export type CrmJobKind = 'activity' | 'sync' | 'stage'
+
 export interface CrmJob {
   id: string
+  /** activity (padrão) = registrar atividade · sync = ler os leads para o Kanban · stage = mudar a etapa do lead */
+  kind?: CrmJobKind
+  /** stage: etapa de destino no CRM */
+  targetStage?: string
   phone: string
   contactName: string
   activityType: string         // texto exato da opção do CRM, ex.: "1 - Tentativa de contato"
@@ -265,6 +276,8 @@ export type BackgroundMessage =
   | { type: 'CRM_RETRY'; payload: { id: string } }
   | { type: 'CRM_DISCARD'; payload: { id: string } }
   | { type: 'CRM_KICK' }
+  | { type: 'CRM_SYNC' }
+  | { type: 'CRM_STAGE_ENQUEUE'; payload: { phone: string; contactName: string; targetStage: string } }
   | { type: 'WPP_STATUS' }
   | { type: 'GEMINI_DECIDE'; payload: { system: string; prompt: string; wantScreenshot?: boolean } }
   | { type: 'GEMINI_STATUS' }

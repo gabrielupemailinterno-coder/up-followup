@@ -565,6 +565,29 @@ async function enqueueCrmJob(input: CrmJobInput, force = false): Promise<Reply> 
 }
 
 /** Após um envio bem-sucedido: registra a atividade no CRM (se a função estiver ligada). */
+/** Sincronização e mudança de etapa: entram na mesma fila do CRM e abrem a janela de trabalho na hora. */
+async function enqueueSpecialCrmJob(input: Pick<CrmJob, 'kind' | 'phone' | 'contactName' | 'activityType' | 'targetStage'>): Promise<Reply> {
+  const jobs = await getCrmJobs()
+  const open = jobs.find(j => j.kind === input.kind && (j.status === 'pending' || j.status === 'running') && (input.kind === 'sync' || j.phone === input.phone))
+  if (open) { await kickCrmDriver(true); return { ok: true, data: 'already' } }
+  const settings = await getSettings()
+  const now = Date.now()
+  await saveCrmJob({
+    id: `crm_${now}_${Math.random().toString(36).slice(2)}`,
+    ...input,
+    comment: '',
+    dedupeKey: `${input.kind}|${input.phone}|${input.targetStage ?? ''}|${now}`,
+    status: 'pending',
+    dryRun: input.kind === 'sync' ? false : settings.crmDryRun,
+    attempts: 0,
+    source: 'manual',
+    createdAt: now,
+    updatedAt: now,
+  })
+  await kickCrmDriver(true)
+  return { ok: true }
+}
+
 async function enqueueCrmActivity(p: { phone: string; contactName: string; text: string; source: 'schedule' | 'campaign' }) {
   try {
     const settings = await getSettings()
@@ -843,6 +866,10 @@ async function handle(msg: BackgroundMessage, sender?: chrome.runtime.MessageSen
     case 'CRM_DISCARD':
       await saveAllCrmJobs((await getCrmJobs()).filter(j => j.id !== msg.payload.id))
       return { ok: true }
+    case 'CRM_SYNC':
+      return enqueueSpecialCrmJob({ kind: 'sync', phone: '', contactName: 'Sincronizar CRM → Kanban', activityType: 'Sincronizar com o Kanban' })
+    case 'CRM_STAGE_ENQUEUE':
+      return enqueueSpecialCrmJob({ kind: 'stage', phone: msg.payload.phone, contactName: msg.payload.contactName, activityType: `Mudar etapa → ${msg.payload.targetStage}`, targetStage: msg.payload.targetStage })
     case 'CRM_KICK':
       await kickCrmDriver(true)
       return { ok: true }

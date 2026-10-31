@@ -8,10 +8,11 @@
 
 import type { CrmAgentMode, CrmJob, CrmLead } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { appendCrmTrace, getCrmJobs, getSettings, mergeCrmLeads, patchCrmJob } from '../src/storage'
-import { runJobStep, type CrmPageAdapter, type StepResult } from '../src/crmDriver'
+import { appendCrmTrace, getCrmJobs, getCrmStages, getKanbanCards, getKanbanColumns, getSettings, mergeCrmLeads, patchCrmJob, saveAllKanbanCards, saveKanbanColumns, setCrmStages } from '../src/storage'
+import { runJobStep, runStageStep, type CrmPageAdapter, type StepResult } from '../src/crmDriver'
+import { describeReport, filterMine, mergeIntoKanban, type TableLead } from '../src/crmSync'
 import { geminiReady, runGeminiPilot } from './crm-agent'
-import { createCrmAdapter, describeCrmPage, leadsFromFunilPage, leadsFromLeadsPage, sleep, waitFor } from './crm-adapter'
+import { createCrmAdapter, describeCrmPage, leadsFromFunilPage, leadsFromLeadsPage, readTableLeads, sleep, waitFor } from './crm-adapter'
 import { extensionAlive, safeInterval } from '../src/alive'
 import { fontFaceCss } from '../src/theme'
 import { mountCrmPanel } from './CrmPanel'
@@ -19,7 +20,8 @@ import { mountCrmPanel } from './CrmPanel'
 const MAX_PAGE_LOADS_PER_JOB = 6
 const RUNNING_TIMEOUT_MS = 4 * 60_000
 const STEP_TIMEOUT_MS = 90_000   // nenhum passo pode passar disso: vira falha com o nome do passo
-const AGENT_TIMEOUT_MS = 5 * 60_000   // o piloto Gemini faz várias chamadas: precisa de mais folga
+const AGENT_TIMEOUT_MS = 5 * 60_000
+const SYNC_TIMEOUT_MS = 12 * 60_000   // sincronização percorre várias páginas da tela Leads   // o piloto Gemini faz várias chamadas: precisa de mais folga
 
 // ─── Leitor ───────────────────────────────────────────────────────────────────
 
@@ -83,6 +85,34 @@ function banner(text: string | null) {
 }
 
 let activeJobId: string | null = null
+
+/** Sincronização CRM → Kanban: lê a tabela de Leads (todas as páginas, até o teto) e atualiza os cards. */
+async function runSync(adapter: CrmPageAdapter, note: (text: string, asMessage: boolean) => void): Promise<StepResult> {
+  if (adapter.path() !== '/leads') return { kind: 'navigating', to: '/leads' }
+  const st = await getSettings()
+  const failed = (message: string): StepResult => ({ kind: 'finished', status: 'failed', message })
+  if (!st.crmOwnerName.trim()) return failed('Preencha "Meu nome no CRM" em Configurações > CRM Incbook (como aparece em "Com quem está") e sincronize de novo.')
+  note('Lendo a tela Leads do CRM…', true)
+  await adapter.searchLeadRows('')            // limpa a busca: lista completa
+  const all: TableLead[] = []
+  let capped = false
+  for (let pg = 0; pg < st.crmSyncMaxPages; pg++) {
+    const { leads, missing } = readTableLeads()
+    if (pg === 0 && missing.length) return failed(`Na tela Leads do CRM, ative em "Colunas" as colunas: ${missing.join(', ')}. Depois sincronize de novo.`)
+    all.push(...leads)
+    if (pg % 5 === 4) note(`Lidas ${pg + 1} página(s), ${all.length} leads…`, true)
+    if (!adapter.nextPage || !(await adapter.nextPage())) break
+    if (pg === st.crmSyncMaxPages - 1) capped = true
+  }
+  const mine = filterMine(all, st.crmOwnerName)
+  const [cards, columns] = await Promise.all([getKanbanCards(), getKanbanColumns()])
+  const merged = mergeIntoKanban(cards, columns, mine, st.crmStageMap, Date.now(), () => `card_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+  merged.report.read = all.length
+  if (merged.columns.length !== columns.length) await saveKanbanColumns(merged.columns)
+  await saveAllKanbanCards(merged.cards)
+  await setCrmStages([...new Set([...(await getCrmStages()), ...all.map(l => l.stage).filter(Boolean)])])
+  return { kind: 'finished', status: 'done', message: describeReport(merged.report, capped) }
+}
 
 /** Escolhe quem conduz o registro: fluxo fixo, piloto Gemini, ou fixo com Gemini de reserva. */
 async function stepFor(
@@ -162,7 +192,12 @@ async function runDriver() {
     let result
     try {
       const mode = (await getSettings()).crmAgent
-      result = await withTimeout(stepFor(job, adapter, mode, note), mode === 'off' ? STEP_TIMEOUT_MS : AGENT_TIMEOUT_MS, () => lastStep)
+      const kind = job.kind ?? 'activity'
+      const run = kind === 'sync' ? runSync(adapter, note)
+        : kind === 'stage' ? runStageStep(job, adapter, text => note(text, true))
+        : stepFor(job, adapter, mode, note)
+      const ms = kind === 'sync' ? SYNC_TIMEOUT_MS : kind === 'stage' ? STEP_TIMEOUT_MS * 2 : mode === 'off' ? STEP_TIMEOUT_MS : AGENT_TIMEOUT_MS
+      result = await withTimeout(run, ms, () => lastStep)
     } catch (err) {
       const msg = `Travou: ${err instanceof Error ? err.message : String(err)}. ${describeCrmPage()}`
       note(msg, false)

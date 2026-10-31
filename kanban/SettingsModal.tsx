@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import type { AppSettings, CrmAgentMode, GeminiStatus, Template } from '../src/types'
+import type { AppSettings, CrmAgentMode, GeminiStatus, KanbanColumn, Template } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { getSettings, getTemplates, saveSettings, saveTemplates, getTodayLog, getGeminiUserKey, setGeminiUserKey } from '../src/storage'
+import { getSettings, getTemplates, saveSettings, saveTemplates, getTodayLog, getGeminiUserKey, setGeminiUserKey, getCrmStages, getKanbanColumns } from '../src/storage'
+import { columnForStage, normTitle } from '../src/crmSync'
 import { buildBackup, buildKanbanCsv, downloadFile, restoreBackup } from '../src/backup'
 import { C, R } from '../src/theme'
 import {
@@ -30,6 +31,8 @@ export function SettingsModal({
   const fileRef = useRef<HTMLInputElement>(null)
   const [wpp, setWpp] = useState<{ busy: boolean; result?: WppResult<WppStatus>; failure?: string }>({ busy: false })
   const [gemKey, setGemKey] = useState('')
+  const [crmStages, setCrmStagesState] = useState<string[]>([])
+  const [kColumns, setKColumns] = useState<KanbanColumn[]>([])
   const [gemStatus, setGemStatus] = useState<GeminiStatus | null>(null)
   const [gemTest, setGemTest] = useState<{ busy: boolean; ok?: boolean; text?: string }>({ busy: false })
 
@@ -45,6 +48,8 @@ export function SettingsModal({
       setTemplates(t)
       setUsedToday(log.count)
       setGemKey(await getGeminiUserKey())
+      setCrmStagesState(await getCrmStages())
+      setKColumns(await getKanbanColumns())
       void refreshGemini()
     })()
   }, [])
@@ -193,6 +198,46 @@ export function SettingsModal({
           <p style={help}>
             A extensão abre uma aba do CRM fixada, em segundo plano, só para isso (você precisa estar logado no CRM neste navegador). Ela acha o lead pelo telefone, confere o telefone no painel e só então registra. Se houver mais de um lead com o mesmo telefone, ou o telefone não conferir, não registra e avisa na aba CRM do ícone UP.
           </p>
+          <h4 style={{ ...h3, marginTop: '16px' }}>Sincronização com o Kanban</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+            <label style={labelStyle}>
+              Meu nome no CRM (como aparece em "Com quem está")
+              <input style={inputStyle} value={settings.crmOwnerName} placeholder="Ex.: Gabriel Vieira" onChange={e => setSettings({ ...settings, crmOwnerName: e.target.value })} />
+            </label>
+            <label style={labelStyle}>
+              Páginas lidas (máx.)
+              <input type="number" min={1} style={inputStyle} value={settings.crmSyncMaxPages} onChange={e => setSettings({ ...settings, crmSyncMaxPages: num(e.target.value, 1, 80) })} />
+            </label>
+          </div>
+          <p style={help}>
+            O botão <strong>Sincronizar CRM</strong> no Kanban lê a tela Leads do CRM (ative em "Colunas" as colunas <em>Telefone</em>, <em>Etapa</em> e <em>Com quem está</em>), traz só os seus leads e coloca cada um na coluna da etapa. Ao arrastar no Kanban um card que veio do CRM, a extensão pergunta se deve mudar a etapa no CRM também.
+          </p>
+          {crmStages.length > 0 && (
+            <table style={{ width: '100%', marginTop: '10px', fontSize: '12.5px', borderCollapse: 'collapse' }}>
+              <thead><tr><th style={{ textAlign: 'left', padding: '4px', color: C.muted }}>Etapa no CRM</th><th style={{ textAlign: 'left', padding: '4px', color: C.muted }}>Coluna no Kanban</th></tr></thead>
+              <tbody>
+                {crmStages.map(stage => {
+                  const key = normTitle(stage)
+                  const auto = columnForStage(stage, kColumns, {})
+                  return (
+                    <tr key={key} style={{ borderTop: `1px solid ${C.line}` }}>
+                      <td style={{ padding: '6px 4px', fontWeight: 600 }}>{stage}</td>
+                      <td style={{ padding: '4px' }}>
+                        <select style={inputStyle} value={settings.crmStageMap[key] ?? ''} onChange={e => {
+                          const map = { ...settings.crmStageMap }
+                          if (e.target.value) map[key] = e.target.value; else delete map[key]
+                          setSettings({ ...settings, crmStageMap: map })
+                        }}>
+                          <option value="">Automático{auto ? ` (${auto.title})` : ' (cria coluna)'}</option>
+                          {kColumns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
           <div style={{ ...warnStyle, marginTop: '10px' }}>
             Teste primeiro: com o modo teste ligado, envie uma mensagem para um lead de teste e veja o resultado na aba CRM. Só depois desligue o modo teste.
           </div>

@@ -39,6 +39,7 @@ function CrmPanelApp() {
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [items, setItems] = React.useState<Suggestion[]>([])
+  const [syncNote, setSyncNote] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     const read = () => {
@@ -118,6 +119,12 @@ function CrmPanelApp() {
           </div>
 
           {!lead && <p style={{ fontSize: '13px', color: C.muted, margin: 0 }}>Abra um lead no CRM (clique no nome dele) para sugerir e enviar mensagens.</p>}
+          <button style={{ ...ghostBtn, width: '100%', marginBottom: '10px', marginTop: lead ? 0 : '10px' }} onClick={async () => {
+            const r = await sendToBackground({ type: 'CRM_SYNC' })
+            setError(r.ok ? null : r.message)
+            setSyncNote(r.ok ? 'Sincronizando: uma janela do CRM abre, lê a tela Leads e atualiza o Kanban. O resultado aparece na aba CRM do ícone UP.' : null)
+          }}><Icon name="repeat" size={14} /> Sincronizar com o Kanban</button>
+          {syncNote && <div style={{ ...okStyle, marginBottom: '10px' }}>{syncNote}</div>}
 
           {lead && (
             <>

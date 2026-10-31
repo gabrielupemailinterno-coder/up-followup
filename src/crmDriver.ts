@@ -27,6 +27,8 @@ export interface CrmPageAdapter {
   /** Clica no nome do lead da linha `index` e espera o painel abrir. */
   openLeadRow(index: number): Promise<boolean>
   readModalPhones(): string[]
+  /** Muda o seletor "Etapa" do lead aberto. Em modo teste só confere a opção e cancela. */
+  selectStage?(label: string, dryRun: boolean): Promise<{ ok: boolean; message: string }>
   /** Atividades e etapa do lead aberto (para decidir tentativa x follow-up). */
   leadHistory?(): LeadHistory
   openActivityForm(): Promise<boolean>
@@ -46,11 +48,8 @@ export type StepResult =
 
 const fail = (message: string): StepResult => ({ kind: 'finished', status: 'failed', message })
 
-export async function runJobStep(
-  job: CrmJob,
-  page: CrmPageAdapter,
-  onStep: (text: string) => void = () => {}
-): Promise<StepResult> {
+/** Acha o lead pelo telefone na tela Leads e deixa o painel dele aberto (telefone conferido). */
+async function openLeadByPhone(job: CrmJob, page: CrmPageAdapter, onStep: (text: string) => void): Promise<StepResult | 'opened'> {
   // 1) Ir para a tela Leads
   if (page.path() !== '/leads') return { kind: 'navigating', to: '/leads' }
 
@@ -124,6 +123,31 @@ export async function runJobStep(
     if (!sawRows) return fail(`Nenhum lead encontrado na busca (telefone ${shown}, ${queries.length} formas). Confira se o lead existe, se é seu e qual telefone está cadastrado.`)
     return fail(`Nenhum dos leads encontrados tem o telefone ${shown} no cadastro. Nada foi registrado.`)
   }
+  return 'opened'
+}
+
+/** Mudar a etapa do lead no CRM (Kanban → CRM). Modo teste: só confere que a etapa existe. */
+export async function runStageStep(job: CrmJob, page: CrmPageAdapter, onStep: (text: string) => void = () => {}): Promise<StepResult> {
+  const target = job.targetStage?.trim()
+  if (!target) return fail('Etapa de destino não informada.')
+  if (!page.selectStage) return fail('Esta versão não sabe mudar a etapa no CRM.')
+  const opened = await openLeadByPhone(job, page, onStep)
+  if (opened !== 'opened') return opened
+  onStep(`Mudando a etapa para "${target}"…`)
+  const r = await page.selectStage(target, job.dryRun)
+  await page.closeModal()
+  if (!r.ok) return fail(r.message)
+  if (job.dryRun) return { kind: 'finished', status: 'tested', message: `Modo teste: a etapa "${target}" existe e NÃO foi alterada.` }
+  return { kind: 'finished', status: 'done', message: r.message }
+}
+
+export async function runJobStep(
+  job: CrmJob,
+  page: CrmPageAdapter,
+  onStep: (text: string) => void = () => {}
+): Promise<StepResult> {
+  const opened = await openLeadByPhone(job, page, onStep)
+  if (opened !== 'opened') return opened
 
   // 4) Tipo da atividade conforme o histórico do lead no CRM, depois preencher o formulário
   const activityType = resolveActivityType(job, page.leadHistory?.() ?? { activities: null, stage: null })

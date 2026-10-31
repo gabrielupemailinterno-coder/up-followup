@@ -37,6 +37,7 @@ import {
 } from '../src/ui'
 import { Icon, type IconName } from '../src/icons'
 import { useFeedback } from '../src/feedback'
+import { crmStageForMove, enqueueCrmStage } from '../src/crmStageSync'
 import { SettingsModal } from './SettingsModal'
 import { ColumnEditor, type ColumnEdit } from './ColumnEditor'
 import { CampaignsPanel } from './CampaignsPanel'
@@ -119,6 +120,27 @@ export default function KanbanApp() {
     updated = updated.map((c, i) => ({ ...c, order: i }))
     setCards(updated)
     await saveAllKanbanCards(updated)
+
+    // Card ligado ao CRM mudou de coluna: oferece mover também a etapa no CRM.
+    const moved = updated.find(c => c.id === dragged.id)
+    if (moved && moved.columnId !== dragged.columnId) {
+      const target = await crmStageForMove(dragged, moved.columnId)
+      if (target && await confirm({ title: 'Mover também no CRM?', message: `Mudar a etapa de "${moved.contactName}" no CRM Incbook para "${target}"? A extensão abre o lead, confere o telefone e muda a etapa (em modo teste só confere).`, confirmLabel: 'Mover no CRM' })) {
+        const r = await enqueueCrmStage(moved, target)
+        if (r.error) toast(r.error, 'err')
+        else {
+          const next = updated.map(c => (c.id === moved.id ? r.card : c))
+          setCards(next)
+          await saveAllKanbanCards(next)
+          toast('Na fila do CRM: a etapa será alterada em instantes.')
+        }
+      }
+    }
+  }
+
+  async function syncCrm() {
+    const r = await sendToBackground({ type: 'CRM_SYNC' })
+    toast(r.ok ? 'Sincronizando com o CRM: uma janela do CRM abre e lê a tela Leads. O resultado aparece na aba CRM do ícone UP.' : r.message, r.ok ? 'ok' : 'err')
   }
 
   // ─── Colunas ─────────────────────────────────────────────────────────────────
@@ -268,6 +290,7 @@ export default function KanbanApp() {
             <button onClick={() => setEditingColumn('new')} style={topBtn}><Icon name="plus" size={15} /> Coluna</button>
           </>
         )}
+        <button onClick={() => void syncCrm()} style={topBtn} title="Traz os seus leads do CRM para o Kanban, nas colunas das etapas"><Icon name="repeat" size={15} /> Sincronizar CRM</button>
         <button onClick={() => sendToBackground({ type: 'OPEN_MANUAL' })} style={topIconBtn} aria-label="Manual de uso" title="Manual de uso"><Icon name="book" size={17} /></button>
         <button onClick={() => setShowSettings(true)} style={topIconBtn} aria-label="Configurações" title="Configurações"><Icon name="sliders" size={17} /></button>
       </header>

@@ -5,6 +5,7 @@
  */
 
 import type { CrmLead, LeadContext } from '../src/types'
+import type { TableLead } from '../src/crmSync'
 import { normalizePhone } from '../src/phone'
 import type { CrmPageAdapter } from '../src/crmDriver'
 
@@ -160,6 +161,15 @@ async function openSelect(input: HTMLElement): Promise<HTMLElement | null> {
   return select
 }
 
+/** Escolhe a opção de texto `label` no seletor aberto (em modo teste só confere que existe). */
+async function chooseOptionOrList(label: string, dryRun: boolean): Promise<string[] | 'ok'> {
+  const options = [...document.querySelectorAll<HTMLElement>(SEL.selectOption)]
+  const hit = options.find(o => norm(o.textContent ?? '') === norm(label))
+  if (!hit) return options.map(o => (o.textContent ?? '').trim())
+  if (!dryRun) { realClick(hit); await sleep(300) }
+  return 'ok'
+}
+
 async function chooseOption(select: HTMLElement, match: (text: string) => boolean, query = ''): Promise<string[] | 'ok'> {
   const read = () => [...document.querySelectorAll<HTMLElement>(SEL.selectOption)]
   let options = read()
@@ -230,6 +240,23 @@ export function rowNameButton(row: HTMLElement): HTMLElement | null {
   // o elemento mais interno com o texto do nome (a "pílula" cinza ou o próprio texto)
   const leaves = [...cell.querySelectorAll<HTMLElement>('button, a, span, div')].filter(e => (e.textContent ?? '').trim().length > 0)
   return leaves.find(e => e.matches('button, a')) ?? leaves[leaves.length - 1] ?? cell
+}
+
+/** Linhas da tabela de Leads lidas pelas colunas Nome, Telefone, Com quem está e Etapa (as que estiverem visíveis). */
+export function readTableLeads(): { leads: TableLead[]; missing: string[] } {
+  const cols = { name: columnIndex(/^nome/i), phone: columnIndex(/telefone/i), owner: columnIndex(/com quem/i), stage: columnIndex(/^etapa/i) }
+  const missing = [cols.phone < 0 && 'Telefone', cols.owner < 0 && 'Com quem está', cols.stage < 0 && 'Etapa'].filter((x): x is string => !!x)
+  const text = (td?: HTMLElement) => (td?.textContent ?? '').replace(/\s+/g, ' ').trim()
+  const leads = leadRows().map(row => {
+    const cells = [...row.querySelectorAll<HTMLElement>(':scope > td')]
+    return {
+      name: text(cells[cols.name]),
+      phones: [...(text(cells[cols.phone]).match(PHONE_RE) ?? [])],
+      owner: text(cells[cols.owner]),
+      stage: text(cells[cols.stage]),
+    }
+  })
+  return { leads, missing }
 }
 
 const PHONE_RE = /\+?\(?\d{2}\)?\s?\d{4,5}-?\s?\d{4}/g
@@ -338,6 +365,36 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
     },
 
     rowPhones: () => rowPhones(),
+
+    async selectStage(label, dryRun) {
+      const root = modalEl()
+      if (!root) return { ok: false, message: 'O painel do lead não está aberto.' }
+      const lab = [...root.querySelectorAll<HTMLElement>('label, span, div, p')].find(e => e.children.length === 0 && /^etapa$/i.test((e.textContent ?? '').trim()))
+      let select: HTMLElement | null = null
+      for (let box: HTMLElement | null = lab?.parentElement ?? null, i = 0; box && i < 3 && !select; box = box.parentElement, i++) select = box.querySelector<HTMLElement>('.ant-select')
+      if (!select) return { ok: false, message: 'Não achei o campo "Etapa" no painel do lead.' }
+      const current = () => (select!.querySelector('.ant-select-selection-item')?.textContent ?? '').trim()
+      if (norm(current()) === norm(label)) return { ok: true, message: `O lead já está em "${label}".` }
+      realClick(select.querySelector('.ant-select-selector') ?? select)
+      await sleep(500)
+      const result = await chooseOptionOrList(label, dryRun)
+      if (result !== 'ok') {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }))
+        return { ok: false, message: `A etapa "${label}" não existe no CRM.${result.length ? ` Etapas: ${result.join(' | ')}.` : ''}` }
+      }
+      if (dryRun) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }))
+        return { ok: true, message: 'teste' }
+      }
+      await sleep(800)
+      // confirmação do CRM ao trocar de etapa, se houver (nunca Ganho/Perda: esses são botões, não o seletor)
+      const ok = document.querySelector<HTMLElement>(SEL.confirmOk)
+      if (ok && !/ganho|perda|excluir/i.test(ok.closest('.ant-modal, .ant-popover')?.textContent ?? '')) { realClick(ok); await sleep(800) }
+      const changed = await waitFor(() => (norm(current()) === norm(label) ? true : null), 6000, 250)
+      const err = (document.querySelector('.ant-message-error, .ant-notification-notice-error')?.textContent ?? '').trim()
+      trace(`etapa: pedida "${label}" · na tela "${current()}"${err ? ` · aviso do CRM: ${err}` : ''}`)
+      return changed ? { ok: true, message: `Etapa alterada para "${label}" no CRM.` } : { ok: false, message: `O CRM não confirmou a etapa "${label}"${err ? ` (${err})` : ''}. Confira no CRM.` }
+    },
 
     async nextPage() {
       const next = document.querySelector<HTMLElement>('.ant-pagination-next:not(.ant-pagination-disabled)')

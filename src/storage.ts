@@ -31,6 +31,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   crmAgent: 'pilot',
   geminiModel: 'gemini-flash-latest',
   geminiDailyLimit: 400,
+  crmOwnerName: '',
+  crmStageMap: {},
+  crmSyncMaxPages: 80,
 }
 
 // ─── Storage Keys ──────────────────────────────────────────────────────────────
@@ -53,6 +56,7 @@ const KEYS = {
   CRM_DIAG: 'wm_crm_diag',
   GEMINI_KEY: 'wm_gemini_key',
   GEMINI_USAGE: 'wm_gemini_usage',
+  CRM_STAGES: 'wm_crm_stages',
 }
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
@@ -434,6 +438,15 @@ export async function bumpGeminiUsage(today: string): Promise<GeminiUsage> {
   const next = { date: today, count: u.count + 1 }
   await set(KEYS.GEMINI_USAGE, next)
   return next
+}
+
+/** Etapas do CRM vistas na última sincronização (para o mapeamento em Configurações). */
+export async function getCrmStages(): Promise<string[]> {
+  return get<string[]>(KEYS.CRM_STAGES, [])
+}
+
+export async function setCrmStages(list: string[]): Promise<void> {
+  await set(KEYS.CRM_STAGES, list)
 }
 
 export const STORAGE_KEYS = KEYS
