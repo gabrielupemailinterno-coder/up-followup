@@ -96,9 +96,15 @@ async function runSync(adapter: CrmPageAdapter, note: (text: string, asMessage: 
   await adapter.searchLeadRows('')            // limpa a busca: lista completa
   const all: TableLead[] = []
   let capped = false
+  let hasStageCol = true
   for (let pg = 0; pg < st.crmSyncMaxPages; pg++) {
-    const { leads, missing } = readTableLeads()
-    if (pg === 0 && missing.length) return failed(`Na tela Leads do CRM, ative em "Colunas" as colunas: ${missing.join(', ')}. Depois sincronize de novo.`)
+    const { leads, missing, hasStage, headers } = readTableLeads()
+    if (pg === 0) {
+      note(`colunas da tabela: ${headers.join(' | ')}`, false)
+      if (missing.length) return failed(`Na tela Leads do CRM, ative em "Colunas" as colunas: ${missing.join(', ')}. Depois sincronize de novo.`)
+      hasStageCol = hasStage
+      if (!hasStage) note('Sem coluna de etapa na tabela: os cards novos entram na primeira coluna e os existentes não são movidos.', false)
+    }
     all.push(...leads)
     if (pg % 5 === 4) note(`Lidas ${pg + 1} página(s), ${all.length} leads…`, true)
     if (!adapter.nextPage || !(await adapter.nextPage())) break
@@ -111,7 +117,7 @@ async function runSync(adapter: CrmPageAdapter, note: (text: string, asMessage: 
   if (merged.columns.length !== columns.length) await saveKanbanColumns(merged.columns)
   await saveAllKanbanCards(merged.cards)
   await setCrmStages([...new Set([...(await getCrmStages()), ...all.map(l => l.stage).filter(Boolean)])])
-  return { kind: 'finished', status: 'done', message: describeReport(merged.report, capped) }
+  return { kind: 'finished', status: 'done', message: describeReport(merged.report, capped) + (hasStageCol ? '' : ' Sem a coluna de etapa na tela Leads: ative-a em "Colunas" para o Kanban seguir as etapas do CRM.') }
 }
 
 /** Escolhe quem conduz o registro: fluxo fixo, piloto Gemini, ou fixo com Gemini de reserva. */

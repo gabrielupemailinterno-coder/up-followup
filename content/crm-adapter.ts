@@ -243,9 +243,10 @@ export function rowNameButton(row: HTMLElement): HTMLElement | null {
 }
 
 /** Linhas da tabela de Leads lidas pelas colunas Nome, Telefone, Com quem está e Etapa (as que estiverem visíveis). */
-export function readTableLeads(): { leads: TableLead[]; missing: string[] } {
-  const cols = { name: columnIndex(/^nome/i), phone: columnIndex(/telefone/i), owner: columnIndex(/com quem/i), stage: columnIndex(/^etapa/i) }
-  const missing = [cols.phone < 0 && 'Telefone', cols.owner < 0 && 'Com quem está', cols.stage < 0 && 'Etapa'].filter((x): x is string => !!x)
+export function readTableLeads(): { leads: TableLead[]; missing: string[]; hasStage: boolean; headers: string[] } {
+  const cols = { name: columnIndex(/^nome/i), phone: columnIndex(/telefone/i), owner: columnIndex(/com quem/i), stage: columnIndex(/etapa|fase|funil|status/i) }
+  const missing = [cols.phone < 0 && 'Telefone', cols.owner < 0 && 'Com quem está'].filter((x): x is string => !!x)
+  const headers = [...document.querySelectorAll<HTMLElement>('thead th')].map(th => (th.textContent ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean)
   const text = (td?: HTMLElement) => (td?.textContent ?? '').replace(/\s+/g, ' ').trim()
   const leads = leadRows().map(row => {
     const cells = [...row.querySelectorAll<HTMLElement>(':scope > td')]
@@ -253,10 +254,10 @@ export function readTableLeads(): { leads: TableLead[]; missing: string[] } {
       name: text(cells[cols.name]),
       phones: [...(text(cells[cols.phone]).match(PHONE_RE) ?? [])],
       owner: text(cells[cols.owner]),
-      stage: text(cells[cols.stage]),
+      stage: cols.stage >= 0 ? text(cells[cols.stage]) : '',
     }
   })
-  return { leads, missing }
+  return { leads, missing, hasStage: cols.stage >= 0, headers }
 }
 
 const PHONE_RE = /\+?\(?\d{2}\)?\s?\d{4,5}-?\s?\d{4}/g
@@ -268,7 +269,9 @@ export function rowPhones(): string[][] {
 
 /** "22.770 Leads Filtradas" do cabeçalho: muda quando o filtro da busca é aplicado. */
 export function filteredCountText(): string {
-  const m = (document.body.textContent ?? '').match(/([\d.]+)\s*Leads\s*Filtradas/i)
+  // a "pílula" com o contador: o menor elemento cujo texto tem "Leads Filtradas"
+  const el = [...document.querySelectorAll<HTMLElement>('span, div, button')].filter(e => /leads\s*filtradas/i.test(e.textContent ?? '')).sort((a, b) => (a.textContent ?? '').length - (b.textContent ?? '').length)[0]
+  const m = (el?.textContent ?? '').match(/([\d.]+)\s*Leads\s*Filtradas/i)
   return m ? m[1] : ''
 }
 

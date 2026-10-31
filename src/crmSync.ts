@@ -83,11 +83,13 @@ export function mergeIntoKanban(
     if (!col) col = nextColumns[0]
 
     const idx = nextCards.findIndex(c => c.phone && samePhone(c.phone, phone))
+    const stage = lead.stage.trim() || undefined   // tabela sem coluna de etapa: não move e não liga a etapa
+    if (!stage && idx >= 0) { report.unchanged++; continue }
     if (idx < 0) {
       nextCards.push({
         id: newId(), contactName: lead.name, phone, columnId: col.id, columnChangedAt: now,
         columnHistory: [{ columnId: col.id, at: now }], tags: [], notes: '', lastMessage: '', lastMessageAt: 0,
-        order: ++maxOrder, createdAt: now, updatedAt: now, crmStage: lead.stage,
+        order: ++maxOrder, createdAt: now, updatedAt: now, crmStage: stage,
       })
       report.created++
       continue
