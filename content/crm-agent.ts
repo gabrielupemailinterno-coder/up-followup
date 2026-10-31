@@ -9,7 +9,7 @@ import { sendToBackground } from '../src/types'
 import { runAgentJob, type AgentDeps, type AgentOutcome } from '../src/agent'
 import type { AgentAction, AgentElement, ElementKind, FormState, Snapshot } from '../src/gemini'
 import type { CrmPageAdapter } from '../src/crmDriver'
-import { leadRows, modalEl, readPhonesIn, realClick, setInputValue, sleep, waitFor } from './crm-adapter'
+import { leadRows, rowNameButton, modalEl, readPhonesIn, realClick, setInputValue, sleep, waitFor } from './crm-adapter'
 
 const MODAL_ROOTS = '.ant-modal-content, .ant-drawer-content'
 const DROPDOWN = '.ant-select-dropdown:not(.ant-select-dropdown-hidden)'
@@ -88,6 +88,18 @@ export function takeSnapshot(): Snapshot {
       if (elements.length >= MAX_ELEMENTS) break
     }
     if (elements.length >= MAX_ELEMENTS) break
+  }
+
+  // nomes da tabela de Leads (são "pílulas", não botões): entram como botões com a linha de contexto
+  if (!modals.length) {
+    for (const row of leadRows()) {
+      const el = rowNameButton(row)
+      if (!el || seen.has(el) || elements.length >= MAX_ELEMENTS) continue
+      seen.add(el)
+      const id = elements.length + 1
+      elements.push({ id, kind: 'button', label: clip(el.textContent ?? '', 60), context: clip(row.textContent ?? '', 120) })
+      refs.set(id, el)
+    }
   }
 
   const modal = modals[0] ?? null

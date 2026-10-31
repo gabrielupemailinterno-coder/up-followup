@@ -20,6 +20,10 @@ export interface CrmPageAdapter {
   goto(path: string): void
   /** Digita `query` na busca da tela Leads e devolve quantas linhas a lista mostra depois de atualizar. */
   searchLeadRows(query: string): Promise<number>
+  /** Telefones lidos de cada linha visível da tabela (vazio se a tabela não mostra telefone). */
+  rowPhones?(): string[][]
+  /** Vai para a próxima página da lista; false se não houver. */
+  nextPage?(): Promise<boolean>
   /** Clica no nome do lead da linha `index` e espera o painel abrir. */
   openLeadRow(index: number): Promise<boolean>
   readModalPhones(): string[]
@@ -62,6 +66,28 @@ export async function runJobStep(
     const rows = await page.searchLeadRows(q)
     if (rows === 0) continue
     sawRows = true
+
+    // A tabela mostra o telefone: acha a linha pelo número (todas as páginas) e só então abre.
+    let phones = page.rowPhones?.() ?? []
+    if (phones.some(p => p.length > 0)) {
+      for (let pg = 0; pg < 20; pg++) {
+        const hits = phones.map((ps, i) => (ps.some(p => samePhone(p, job.phone)) ? i : -1)).filter(i => i >= 0)
+        if (hits.length > 1) return { kind: 'finished', status: 'skipped', message: `Há ${hits.length} leads com o telefone ${shown}. Registre manualmente para não errar o lead.` }
+        if (hits.length === 1) {
+          onStep('Abrindo o lead (clicando no nome)…')
+          if (await page.openLeadRow(hits[0])) {
+            if (page.readModalPhones().length === 0 || page.readModalPhones().some(p => samePhone(p, job.phone))) { opened = true; break }
+            await page.closeModal()
+          } else openFailed = true
+          break
+        }
+        if (!page.nextPage || !(await page.nextPage())) break
+        phones = page.rowPhones?.() ?? []
+      }
+      if (opened) break
+      continue
+    }
+
     if (rows >= CRM_PAGE_SIZE || rows > MAX_ROW_CANDIDATES) { tooMany = true; continue }   // consulta mais específica na próxima
 
     if (rows === 1) {

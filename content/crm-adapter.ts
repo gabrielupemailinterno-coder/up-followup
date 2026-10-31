@@ -206,22 +206,37 @@ function maskPhone(raw: string): string {
 
 /** Linhas de dados da tabela de /leads (ignora cabeçalho, linha de medição e "sem dados"). */
 export function leadRows(): HTMLElement[] {
-  const rows = [...document.querySelectorAll<HTMLElement>('tbody tr, [role="row"]')]
-  return rows.filter(r =>
+  const rows = [...document.querySelectorAll<HTMLElement>('tr.ant-table-row, tbody tr, [role="row"]')]
+  return [...new Set(rows)].filter(r =>
     !r.classList.contains('ant-table-placeholder') &&
     !r.classList.contains('ant-table-measure-row') &&
     !r.querySelector('th') &&
-    r.querySelector('button, a')
+    (r.textContent ?? '').trim().length > 0
   )
 }
 
-/** O botão com o nome do lead (o ícone de ação não tem texto; o nome tem). */
+/** Índice da coluna cujo cabeçalho bate com `re` (ex.: "Nome", "Telefone"), ou -1. */
+function columnIndex(re: RegExp): number {
+  const ths = [...document.querySelectorAll<HTMLElement>('thead th')]
+  return ths.findIndex(th => re.test((th.textContent ?? '').trim()))
+}
+
+/** O nome do lead na linha (é ele que abre o painel; o ícone de ação ao lado não tem texto). */
 export function rowNameButton(row: HTMLElement): HTMLElement | null {
-  const items = [...row.querySelectorAll<HTMLElement>('button, a')]
-  const btn = items.find(b => (b.textContent ?? '').trim().length > 0 && !/detalhes|editar|enviar/i.test((b.textContent ?? '').trim()))
-  if (btn) return btn
-  // linhas sem o "botão cinza" (ex.: leads antigos): o nome é só texto na primeira célula com conteúdo
-  return [...row.querySelectorAll<HTMLElement>('td')].find(td => (td.textContent ?? '').trim().length > 0 && !td.querySelector('input')) ?? null
+  const cells = [...row.querySelectorAll<HTMLElement>(':scope > td')]
+  const idx = columnIndex(/^nome/i)
+  const cell = (idx >= 0 ? cells[idx] : undefined) ?? cells.find(td => (td.textContent ?? '').trim().length > 0 && !td.querySelector('input'))
+  if (!cell) return null
+  // o elemento mais interno com o texto do nome (a "pílula" cinza ou o próprio texto)
+  const leaves = [...cell.querySelectorAll<HTMLElement>('button, a, span, div')].filter(e => (e.textContent ?? '').trim().length > 0)
+  return leaves.find(e => e.matches('button, a')) ?? leaves[leaves.length - 1] ?? cell
+}
+
+const PHONE_RE = /\+?\(?\d{2}\)?\s?\d{4,5}-?\s?\d{4}/g
+
+/** Telefones de cada linha (lidos do texto da linha, ex.: coluna "Telefone"). */
+export function rowPhones(): string[][] {
+  return leadRows().map(r => [...((r.textContent ?? '').match(PHONE_RE) ?? [])])
 }
 
 /** "22.770 Leads Filtradas" do cabeçalho: muda quando o filtro da busca é aplicado. */
@@ -274,8 +289,22 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
       const count = leadRows().length
       const q = (sel: string) => document.querySelectorAll(sel).length
       trace(`página: ${document.hidden ? 'ESCONDIDA (o Chrome pausa a tela)' : 'visível'} · tr=${q('tr')} role=row=${q('[role="row"]')} li=${q('li')} .ant-table-row=${q('.ant-table-row')} botões=${q('button')} · texto da página=${(document.body.innerText ?? '').length} caracteres`)
-      trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 15 s'} · ${filteredCountText() || '?'} filtrados · ${count} linha(s)`)
+      trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 15 s'} · ${filteredCountText() || '?'} filtrados · ${count} linha(s) · telefones na tabela: ${rowPhones().map(ps => ps.map(maskPhone).join('/') || '—').join(', ')}`)
       return count
+    },
+
+    rowPhones: () => rowPhones(),
+
+    async nextPage() {
+      const next = document.querySelector<HTMLElement>('.ant-pagination-next:not(.ant-pagination-disabled)')
+      if (!next) return false
+      const before = rowSignature()
+      realClick(next.querySelector('button, a') ?? next)
+      const changed = await waitFor(() => (rowSignature() !== before ? true : null), 10_000, 250)
+      await waitFor(() => (!tableBusy() ? true : null), 5000, 250)
+      await sleep(500)
+      trace(`próxima página: ${changed ? 'carregou' : 'NÃO mudou'} · ${leadRows().length} linha(s)`)
+      return !!changed
     },
 
     async openLeadRow(index) {

@@ -693,7 +693,7 @@ async function geminiDecide(
   }
   await bumpGeminiUsage(today)
   // Modelo com demanda alta (503) ou indisponível: tenta os próximos da lista.
-  const models = [...new Set([settings.geminiModel, 'gemini-2.5-flash', 'gemini-2.0-flash'])]
+  const models = [...new Set([settings.geminiModel, 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash'])]
   let res = await callGemini({ key, model: models[0], system: payload.system, prompt: payload.prompt, imageJpegBase64: image })
   for (const m of models.slice(1)) {
     if (res.ok || res.code === 'auth' || res.code === 'blocked') break
