@@ -162,6 +162,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === TICK_ALARM) {
     await recoverStaleSend()
     await tickCampaigns()
+    await unstickCrmJobs()
     await kickCrmDriver()
     await maybeCloseCrmDriver()
     await updateBadge()
@@ -610,6 +611,21 @@ async function kickCrmDriverNow(force: boolean) {
   }
   const tab = await chrome.tabs.create({ url: `${CRM_URL}/leads`, active: false, pinned: true })
   if (tab.id !== undefined) await setCrmDriverTab(tab.id)
+}
+
+/** Vigia: registro "em andamento" sem nenhum progresso por 5 min = travado. Marca como falha e fecha a aba. */
+async function unstickCrmJobs() {
+  const STUCK_MS = 5 * 60_000
+  const stuck = (await getCrmJobs()).filter(j => j.status === 'running' && Date.now() - j.updatedAt > STUCK_MS)
+  if (stuck.length === 0) return
+  for (const j of stuck) {
+    await patchCrmJob(j.id, { status: 'failed', message: 'Travou sem progresso por 5 minutos. Confira no CRM antes de tentar de novo, para não duplicar.' })
+  }
+  const id = await getCrmDriverTab()
+  if (id !== null) {
+    try { await chrome.tabs.remove(id) } catch { /* já fechada */ }
+    await setCrmDriverTab(null)
+  }
 }
 
 async function maybeCloseCrmDriver() {

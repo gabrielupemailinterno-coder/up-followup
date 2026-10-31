@@ -10,7 +10,7 @@ import type { CrmJob, CrmLead } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { getCrmJobs, getSettings, mergeCrmLeads, patchCrmJob } from '../src/storage'
 import { runJobStep } from '../src/crmDriver'
-import { createCrmAdapter, leadsFromFunilPage, leadsFromLeadsPage, sleep } from './crm-adapter'
+import { createCrmAdapter, leadsFromFunilPage, leadsFromLeadsPage, sleep, waitFor } from './crm-adapter'
 import { extensionAlive, safeInterval } from '../src/alive'
 
 const MAX_PAGE_LOADS_PER_JOB = 6
@@ -78,18 +78,28 @@ async function runDriver() {
       continue
     }
     job = (await patchCrmJob(job.id, { status: 'running', attempts: job.attempts + 1 })) ?? job
+    const currentId = job.id
 
     let result
     try {
-      result = await runJobStep(job, adapter)
+      result = await runJobStep(job, adapter, text => { void patchCrmJob(currentId, { message: text }).catch(() => {}) })
     } catch (err) {
       await patchCrmJob(job.id, { status: 'failed', message: `Erro inesperado: ${String(err)}` })
       continue
     }
 
     if (result.kind === 'navigating') {
+      // 1) grava o que descobrimos (ex.: o id do lead) ANTES de sair da página: senão ele se perde no recarregamento
       if (result.patch) await patchCrmJob(job.id, result.patch)
-      return // a página vai recarregar; o script reinicia e retoma o job
+      // 2) navega e espera a tela mudar; com navegação interna o script continua vivo e segue no laço
+      adapter.goto(result.to)
+      const arrived = await waitFor(() => location.pathname.replace(/\/+$/, '') === result.to, 10_000, 200)
+      if (!arrived) {
+        await patchCrmJob(job.id, { status: 'failed', message: `Não consegui abrir a tela ${result.to} do CRM.` })
+        continue
+      }
+      await sleep(2000) // deixa a tela nova montar
+      continue
     }
 
     await patchCrmJob(job.id, { status: result.status, message: result.message, ...result.patch })

@@ -36,18 +36,21 @@ export interface CrmPageAdapter {
 }
 
 export type StepResult =
-  | { kind: 'navigating'; patch?: Partial<CrmJob> }
+  /** Precisa trocar de tela. Quem chama grava `patch` PRIMEIRO e só então navega para `to`. */
+  | { kind: 'navigating'; to: string; patch?: Partial<CrmJob> }
   | { kind: 'finished'; status: 'done' | 'tested' | 'failed' | 'skipped'; message: string; patch?: Partial<CrmJob> }
 
 const fail = (message: string): StepResult => ({ kind: 'finished', status: 'failed', message })
 
-export async function runJobStep(job: CrmJob, page: CrmPageAdapter): Promise<StepResult> {
+export async function runJobStep(
+  job: CrmJob,
+  page: CrmPageAdapter,
+  onStep: (text: string) => void = () => {}
+): Promise<StepResult> {
   // 1) Descobrir o lead pelo telefone, se ainda não sabemos
   if (!job.leadId) {
-    if (page.path() !== '/leads') {
-      page.goto('/leads')
-      return { kind: 'navigating' }
-    }
+    if (page.path() !== '/leads') return { kind: 'navigating', to: '/leads' }
+    onStep('Buscando o lead no CRM…')
     const queries = phoneSearchQueries(job.phone)
     if (queries.length === 0) return fail('Telefone fora do formato brasileiro: não dá para buscar no CRM.')
     const shown = formatPhoneForCrm(job.phone) ?? job.phone
@@ -69,19 +72,17 @@ export async function runJobStep(job: CrmJob, page: CrmPageAdapter): Promise<Ste
     if (!reliable) {
       return { kind: 'finished', status: 'skipped', message: `A busca do CRM por ${shown} devolveu muitos resultados e não dá para garantir que o lead é único. Registre manualmente.` }
     }
-    page.goto('/funil')
-    return { kind: 'navigating', patch: { leadId: matching[0].id, leadName: matching[0].name } }
+    return { kind: 'navigating', to: '/funil', patch: { leadId: matching[0].id, leadName: matching[0].name } }
   }
 
   // 2) Abrir o card no funil
-  if (page.path() !== '/funil') {
-    page.goto('/funil')
-    return { kind: 'navigating' }
-  }
+  if (page.path() !== '/funil') return { kind: 'navigating', to: '/funil' }
+  onStep('Abrindo o lead no funil…')
   const opened = await page.openLeadCard(job.leadId, job.leadName ?? '')
   if (!opened) return fail('Não achei o card deste lead no funil (pode ser de outro corretor ou estar fora do filtro).')
 
   // 3) Trava anti-lead-errado: o telefone do painel aberto tem que bater
+  onStep('Conferindo o telefone do lead…')
   const phones = page.readModalPhones()
   if (!phones.some(p => samePhone(p, job.phone))) {
     await page.closeModal()
@@ -89,6 +90,7 @@ export async function runJobStep(job: CrmJob, page: CrmPageAdapter): Promise<Ste
   }
 
   // 4) Preencher o formulário
+  onStep('Preenchendo a atividade…')
   if (!(await page.openActivityForm())) {
     await page.closeModal()
     return fail('O formulário "Adicionar Atividade" não abriu.')
@@ -112,6 +114,7 @@ export async function runJobStep(job: CrmJob, page: CrmPageAdapter): Promise<Ste
   }
 
   // 6) Enviar e confirmar
+  onStep('Enviando a atividade ao CRM…')
   const before = page.activityCount()
   if (!(await page.submit())) {
     await page.closeModal()

@@ -192,7 +192,11 @@ export function createCrmAdapter(): CrmPageAdapter {
     path: () => location.pathname.replace(/\/+$/, '') || '/',
 
     goto(path) {
-      location.assign(path)
+      // Usa o link do próprio menu do CRM (navegação interna, sem recarregar a página pesada).
+      // Se não achar o link, faz a navegação completa e o script retoma na página seguinte.
+      const link = document.querySelector<HTMLAnchorElement>(`a[href="${path}"]`)
+      if (link) realClick(link)
+      else location.assign(path)
     },
 
     async searchLeadsByPhone(query) {
