@@ -107,6 +107,21 @@ export function takeSnapshot(): Snapshot {
   }
 }
 
+/** O que há sob o mouse em (x,y): sobe até o elemento interativo e o classifica como no retrato. */
+function probeAt(x: number, y: number): AgentElement | null {
+  const hit = document.elementFromPoint(x, y)
+  const el = hit?.closest<HTMLElement>(INTERACTIVE)
+  if (!el || !visible(el)) return null
+  const kind = kindOf(el)
+  const label = el ? (labelOf(el) || (kind === 'editor' ? 'Comentário da atividade' : '')) : ''
+  if (!kind || !label) return null
+  const item: AgentElement = { id: 1000, kind, label }
+  if ((el as HTMLButtonElement).disabled) item.disabled = true
+  if (kind === 'link') item.href = new URL((el as HTMLAnchorElement).href, location.origin).pathname
+  refs.set(1000, el)
+  return item
+}
+
 function formStateFor(job: Pick<CrmJob, 'comment'>): FormState {
   const typeInput = document.querySelector<HTMLElement>('#idTipoAtividade')
   const chosen = typeInput?.closest('.ant-select')?.querySelector('.ant-select-selection-item')?.textContent?.trim() || null
@@ -122,7 +137,7 @@ async function perform(action: AgentAction, element: AgentElement | undefined, j
   if (action.action === 'wait') { await sleep(1500); return }
   const el = element ? refs.get(element.id) : undefined
   if (!element || !el || !el.isConnected) throw new Error('o elemento escolhido saiu da tela')
-  if (action.action === 'click') {
+  if (action.action === 'click' || action.action === 'click_at') {
     if (element.kind === 'select-search') realClick(el.closest('.ant-select')?.querySelector('.ant-select-selector') ?? el)
     else realClick(el)
     await sleep(700)
@@ -168,6 +183,7 @@ export function runGeminiPilot(job: CrmJob, adapter: CrmPageAdapter, trace: (tex
     snapshot: async () => takeSnapshot(),
     ask,
     perform: (action, element) => perform(action, element, job),
+    probe: probeAt,
     formState: () => formStateFor(job),
     closeModal: () => (modalEl() ? adapter.closeModal() : Promise.resolve()),
     activityCount: () => adapter.activityCount(),

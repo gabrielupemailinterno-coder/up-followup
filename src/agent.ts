@@ -24,6 +24,7 @@ export interface AgentDeps {
   snapshot(): Promise<Snapshot>
   ask(system: string, prompt: string): Promise<AskResult>
   perform(action: AgentAction, element: AgentElement | undefined): Promise<void>
+  probe?(x: number, y: number): AgentElement | null
   formState(): FormState
   closeModal(): Promise<void>
   activityCount(): number | null
@@ -90,7 +91,7 @@ export async function runAgentJob(
       return finished('failed', `Gemini indisponível no meio do registro: ${reply.message}`)
     }
 
-    const val = validateAction(parseAgentReply(reply.text), snap, { ...job, phoneVerified: verified, formReady })
+    const val = validateAction(parseAgentReply(reply.text), snap, { ...job, phoneVerified: verified, formReady, probe: deps.probe })
     if (!val.ok) {
       deps.trace(`ação recusada (${val.code}): ${val.message}`)
       history.push(`Ação recusada pelo sistema: ${val.message}`)
