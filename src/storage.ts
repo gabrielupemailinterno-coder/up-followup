@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   crmFirstType: '1 - Tentativa de contato',
   crmFollowupType: '4B - Follow-up realizado',
   crmAgent: 'pilot',
-  geminiModel: 'gemini-2.5-flash',
+  geminiModel: 'gemini-flash-latest',
   geminiDailyLimit: 400,
 }
 

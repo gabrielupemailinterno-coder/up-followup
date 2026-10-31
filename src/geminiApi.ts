@@ -4,7 +4,7 @@
 
 import { GEMINI_RESPONSE_SCHEMA } from './gemini'
 
-export const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash'
+export const GEMINI_DEFAULT_MODEL = 'gemini-flash-latest'
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 export interface GeminiCall {
