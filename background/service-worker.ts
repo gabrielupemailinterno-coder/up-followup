@@ -38,14 +38,19 @@ import {
   getCrmDriverTab,
   setCrmDriverTab,
   setCrmDiag,
+  todayKey,
+  getGeminiUserKey,
+  getGeminiUsage,
+  bumpGeminiUsage,
 } from '../src/storage'
+import { callGemini } from '../src/geminiApi'
 import {
   buildActivityComment, isDuplicate, makeDedupeKey, matchLeadByPhone, pickActivityType,
 } from '../src/crm'
 import { renderTemplate } from '../src/templates'
 import { nextMorning, pickVariantIndex, randomDelayMs } from '../src/campaign'
 import type {
-  ActiveSend, BackgroundMessage, Campaign, CrmJob, Recurrence, Reply, ScheduledMessage, Task,
+  ActiveSend, BackgroundMessage, Campaign, CrmJob, GeminiStatus, Recurrence, Reply, ScheduledMessage, Task,
 } from '../src/types'
 
 const ALARM_PREFIX = 'wm_msg_'
@@ -643,6 +648,60 @@ chrome.tabs.onRemoved.addListener(async tabId => {
   if ((await getCrmDriverTab()) === tabId) await setCrmDriverTab(null)
 })
 
+// ─── Gemini (piloto do CRM) ───────────────────────────────────────────────────
+
+/** Chave: a digitada em Configurações vence a embutida no build (.env.local). Nunca sai do service worker. */
+async function resolveGeminiKey(): Promise<{ key: string; source: 'user' | 'build' | 'none' }> {
+  const user = (await getGeminiUserKey()).trim()
+  if (user) return { key: user, source: 'user' }
+  const built = typeof __GEMINI_API_KEY__ === 'string' ? __GEMINI_API_KEY__.trim() : ''
+  return built ? { key: built, source: 'build' } : { key: '', source: 'none' }
+}
+
+async function geminiStatus(): Promise<GeminiStatus> {
+  const [{ source }, settings, usage] = await Promise.all([resolveGeminiKey(), getSettings(), getGeminiUsage(todayKey())])
+  return { configured: source !== 'none', source, model: settings.geminiModel, usedToday: usage.count, limit: settings.geminiDailyLimit }
+}
+
+async function geminiDecide(
+  payload: { system: string; prompt: string; wantScreenshot?: boolean },
+  sender?: chrome.runtime.MessageSender
+): Promise<Reply> {
+  // Só as páginas do CRM (e a própria extensão) podem pedir decisões ao Gemini.
+  const fromCrm = !!sender?.tab?.url && sender.tab.url.startsWith(CRM_URL)
+  if (!fromCrm) return fail('FORBIDDEN', 'Pedido ao Gemini só é aceito vindo do CRM.')
+  const { key } = await resolveGeminiKey()
+  if (!key) return fail('NO_KEY', 'O Gemini não tem chave configurada.')
+  const settings = await getSettings()
+  const today = todayKey()
+  if ((await getGeminiUsage(today)).count >= settings.geminiDailyLimit) return fail('LIMIT', `Limite diário do Gemini atingido (${settings.geminiDailyLimit} chamadas).`)
+
+  let image: string | undefined
+  if (payload.wantScreenshot && sender?.tab?.active && sender.tab.windowId !== undefined) {
+    try {
+      const url = await chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'jpeg', quality: 60 })
+      image = url.split(',')[1]
+    } catch { /* aba coberta ou sem permissão: segue só com o texto */ }
+  }
+  await bumpGeminiUsage(today)
+  const res = await callGemini({ key, model: settings.geminiModel, system: payload.system, prompt: payload.prompt, imageJpegBase64: image })
+  return res.ok ? { ok: true, data: { text: res.text } } : fail(res.code.toUpperCase(), res.message)
+}
+
+async function geminiTest(): Promise<Reply> {
+  const { key } = await resolveGeminiKey()
+  if (!key) return fail('NO_KEY', 'Nenhuma chave do Gemini configurada.')
+  const settings = await getSettings()
+  await bumpGeminiUsage(todayKey())
+  const res = await callGemini({
+    key, model: settings.geminiModel,
+    system: 'Responda somente com o JSON pedido.',
+    prompt: 'Teste de conexão. Responda action="done" e reason="ok".',
+    timeoutMs: 15_000,
+  })
+  return res.ok ? { ok: true, data: { text: res.text.slice(0, 120) } } : fail(res.code.toUpperCase(), res.message)
+}
+
 // ─── Mensagens (popup / kanban / content) ─────────────────────────────────────
 
 async function handle(msg: BackgroundMessage, sender?: chrome.runtime.MessageSender): Promise<Reply> {
@@ -754,6 +813,13 @@ async function handle(msg: BackgroundMessage, sender?: chrome.runtime.MessageSen
     case 'CRM_KICK':
       await kickCrmDriver(true)
       return { ok: true }
+
+    case 'GEMINI_STATUS':
+      return { ok: true, data: await geminiStatus() }
+    case 'GEMINI_DECIDE':
+      return geminiDecide(msg.payload, sender)
+    case 'GEMINI_TEST':
+      return geminiTest()
 
     case 'WPP_STATUS': {
       const tabs = await chrome.tabs.query({ url: 'https://web.whatsapp.com/*' })

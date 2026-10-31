@@ -6,7 +6,7 @@
 
 import type { CrmLead } from '../src/types'
 import { normalizePhone } from '../src/phone'
-import type { CrmPageAdapter, LeadHit } from '../src/crmDriver'
+import type { CrmPageAdapter } from '../src/crmDriver'
 
 // ─── Seletores (únicos pontos sensíveis ao layout) ────────────────────────────
 
@@ -37,13 +37,13 @@ export async function waitFor<T>(fn: () => T | null | undefined | false, timeout
 }
 
 /** O CRM (React/antd) só reage à sequência completa de eventos do mouse. */
-function realClick(el: Element) {
+export function realClick(el: Element) {
   for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
     el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 }))
   }
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
+export function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
   setter.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -142,14 +142,7 @@ export function leadsFromFunilPage(now = Date.now()): CrmLead[] {
 
 // ─── Adaptador usado pelo executor ────────────────────────────────────────────
 
-function findCardButton(leadId: string): HTMLButtonElement | null {
-  for (const btn of detailsButtons()) {
-    if (leadOfCard(btn)?.id === leadId) return btn
-  }
-  return null
-}
-
-const modalEl = () => document.querySelector(SEL.modal)
+export const modalEl = () => document.querySelector(SEL.modal)
 
 function activityForm(): HTMLFormElement | null {
   return document.querySelector<HTMLInputElement>(SEL.typeInput)?.closest('form') ?? null
@@ -208,6 +201,29 @@ function maskPhone(raw: string): string {
   return d.length < 6 ? '#'.repeat(d.length) : `${d.slice(0, 2)}…${d.slice(-4)}`
 }
 
+// ─── Linhas da tabela de Leads ────────────────────────────────────────────────
+
+/** Linhas de dados da tabela de /leads (ignora cabeçalho, linha de medição e "sem dados"). */
+export function leadRows(): HTMLElement[] {
+  const rows = [...document.querySelectorAll<HTMLElement>('tbody tr, [role="row"]')]
+  return rows.filter(r =>
+    !r.classList.contains('ant-table-placeholder') &&
+    !r.classList.contains('ant-table-measure-row') &&
+    !r.querySelector('th') &&
+    r.querySelector('button, a')
+  )
+}
+
+/** O botão com o nome do lead (o ícone de ação não tem texto; o nome tem). */
+export function rowNameButton(row: HTMLElement): HTMLElement | null {
+  const items = [...row.querySelectorAll<HTMLElement>('button, a')]
+  return items.find(b => (b.textContent ?? '').trim().length > 0 && !/detalhes|editar|enviar/i.test((b.textContent ?? '').trim())) ?? null
+}
+
+const tableBusy = () => !!document.querySelector('.ant-spin-spinning, .ant-table-spin-holder .ant-spin')
+
+const rowSignature = () => leadRows().map(r => (r.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)).join('|')
+
 export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmPageAdapter {
   return {
     path: () => location.pathname.replace(/\/+$/, '') || '/',
@@ -220,35 +236,35 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
       else location.assign(path)
     },
 
-    async searchLeadsByPhone(query) {
+    async searchLeadRows(query) {
       const input = await waitFor(() => document.querySelector<HTMLInputElement>(SEL.leadsSearch), 10_000)
       if (!input) {
         trace('campo de busca da tela Leads não apareceu em 10 s')
-        return []
+        return 0
       }
-      const sig = (arr: AnyObj[] | null) => (arr ?? []).map(l => l.id).join(',')
-      const before = sig(readLeadsArray())
+      const before = rowSignature()
       setInputValue(input, query)
-      // espera a lista mudar em relação à anterior (evita ler resultado velho)
-      const changed = await waitFor(() => (sig(readLeadsArray()) !== before ? true : null), 7000, 250)
+      // espera a lista mudar em relação à anterior (evita ler resultado velho) e o carregamento acabar
+      const changed = await waitFor(() => (rowSignature() !== before ? true : null), 7000, 250)
+      await waitFor(() => (!tableBusy() ? true : null), 5000, 250)
       await sleep(600)
-      const list = readLeadsArray() ?? []
-      const phones = list.slice(0, 6).map(l => phoneStrings(l).map(maskPhone).join('/') || 'sem telefone')
-      trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 7 s'} · ${list.length} resultado(s)${phones.length ? ' · telefones: ' + phones.join(', ') : ''}`)
-      return list.map<LeadHit>(l => ({ id: String(l.id), name: String(l.nome ?? ''), phones: phoneStrings(l) }))
+      const count = leadRows().length
+      trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 7 s'} · ${count} linha(s)`)
+      return count
     },
 
-    async openLeadCard(leadId, leadName) {
-      const input = await waitFor(() => document.querySelector<HTMLInputElement>(SEL.funilSearch), 10_000)
-      if (!input) return false
-      let btn = findCardButton(leadId)
-      if (!btn && leadName.trim().length >= 3) {
-        setInputValue(input, leadName.trim())
-        btn = await waitFor(() => findCardButton(leadId), 8000, 250)
+    async openLeadRow(index) {
+      const row = leadRows()[index]
+      const btn = row ? rowNameButton(row) : null
+      if (!btn) {
+        trace(`linha ${index + 1}: não achei o botão com o nome do lead`)
+        return false
       }
-      if (!btn) return false
       realClick(btn)
-      return !!(await waitFor(() => modalEl(), 6000))
+      const open = await waitFor(() => modalEl(), 6000)
+      if (open) await waitFor(() => document.querySelector('input[name^="telefone"]'), 4000, 200)
+      trace(`linha ${index + 1}: ${open ? 'painel do lead abriu' : 'o painel NÃO abriu depois do clique'}${open ? ` · telefones no painel: ${this.readModalPhones().map(maskPhone).join('/') || 'nenhum'}` : ''}`)
+      return !!open
     },
 
     readModalPhones() {

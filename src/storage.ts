@@ -28,6 +28,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   crmDryRun: true,
   crmFirstType: '1 - Tentativa de contato',
   crmFollowupType: '4B - Follow-up realizado',
+  crmAgent: 'pilot',
+  geminiModel: 'gemini-2.5-flash',
+  geminiDailyLimit: 400,
 }
 
 // ─── Storage Keys ──────────────────────────────────────────────────────────────
@@ -48,6 +51,8 @@ const KEYS = {
   CRM_JOBS: 'wm_crm_jobs',
   CRM_DRIVER_TAB: 'wm_crm_driver_tab',
   CRM_DIAG: 'wm_crm_diag',
+  GEMINI_KEY: 'wm_gemini_key',
+  GEMINI_USAGE: 'wm_gemini_usage',
 }
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
@@ -403,6 +408,32 @@ export async function getCrmDiag(): Promise<CrmDiag | null> {
 
 export async function setCrmDiag(d: CrmDiag): Promise<void> {
   await set(KEYS.CRM_DIAG, d)
+}
+
+// ─── Gemini (chave fora das configurações e do backup) ─────────────────────────
+
+/** Chave digitada pelo usuário em Configurações. Nunca entra no backup nem é lida pelas páginas do WhatsApp/CRM. */
+export async function getGeminiUserKey(): Promise<string> {
+  return get<string>(KEYS.GEMINI_KEY, '')
+}
+
+export async function setGeminiUserKey(key: string): Promise<void> {
+  if (key.trim()) await set(KEYS.GEMINI_KEY, key.trim())
+  else await chrome.storage.local.remove(KEYS.GEMINI_KEY)
+}
+
+export interface GeminiUsage { date: string; count: number }
+
+export async function getGeminiUsage(today: string): Promise<GeminiUsage> {
+  const u = await get<GeminiUsage | null>(KEYS.GEMINI_USAGE, null)
+  return u && u.date === today ? u : { date: today, count: 0 }
+}
+
+export async function bumpGeminiUsage(today: string): Promise<GeminiUsage> {
+  const u = await getGeminiUsage(today)
+  const next = { date: today, count: u.count + 1 }
+  await set(KEYS.GEMINI_USAGE, next)
+  return next
 }
 
 export const STORAGE_KEYS = KEYS

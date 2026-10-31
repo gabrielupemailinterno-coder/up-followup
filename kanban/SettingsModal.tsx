@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
-import type { AppSettings, Template } from '../src/types'
+import type { AppSettings, CrmAgentMode, GeminiStatus, Template } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { getSettings, getTemplates, saveSettings, saveTemplates, getTodayLog } from '../src/storage'
+import { getSettings, getTemplates, saveSettings, saveTemplates, getTodayLog, getGeminiUserKey, setGeminiUserKey } from '../src/storage'
 import { buildBackup, buildKanbanCsv, downloadFile, restoreBackup } from '../src/backup'
 import { C, R } from '../src/theme'
 import {
@@ -29,6 +29,14 @@ export function SettingsModal({
   const [usedToday, setUsedToday] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const [wpp, setWpp] = useState<{ busy: boolean; result?: WppResult<WppStatus>; failure?: string }>({ busy: false })
+  const [gemKey, setGemKey] = useState('')
+  const [gemStatus, setGemStatus] = useState<GeminiStatus | null>(null)
+  const [gemTest, setGemTest] = useState<{ busy: boolean; ok?: boolean; text?: string }>({ busy: false })
+
+  async function refreshGemini() {
+    const r = await sendToBackground<GeminiStatus>({ type: 'GEMINI_STATUS' })
+    if (r.ok && r.data) setGemStatus(r.data)
+  }
 
   useEffect(() => {
     void (async () => {
@@ -36,6 +44,8 @@ export function SettingsModal({
       setSettings(s)
       setTemplates(t)
       setUsedToday(log.count)
+      setGemKey(await getGeminiUserKey())
+      void refreshGemini()
     })()
   }, [])
 
@@ -50,6 +60,8 @@ export function SettingsModal({
     if (!settings) return
     const cleaned = templates.filter(t => t.title.trim() && t.body.trim())
     await saveSettings(settings)
+    await setGeminiUserKey(gemKey)
+    await refreshGemini()
     await saveTemplates(cleaned)
     setTemplates(cleaned)
     await sendToBackground({ type: 'RESYNC_ALARMS' })
@@ -94,6 +106,15 @@ export function SettingsModal({
     const r = await sendToBackground<WppResult<WppStatus>>({ type: 'WPP_STATUS' })
     if (!r.ok) setWpp({ busy: false, failure: r.message })
     else setWpp({ busy: false, result: r.data })
+  }
+
+  async function testGemini() {
+    setGemTest({ busy: true })
+    await saveSettings(settings!)
+    await setGeminiUserKey(gemKey)
+    const r = await sendToBackground<{ text: string }>({ type: 'GEMINI_TEST' })
+    setGemTest(r.ok ? { busy: false, ok: true, text: 'Conexão com o Gemini funcionando.' } : { busy: false, ok: false, text: r.message })
+    void refreshGemini()
   }
 
   function patchTemplate(id: string, patch: Partial<Template>) {
@@ -174,6 +195,48 @@ export function SettingsModal({
           </p>
           <div style={{ ...warnStyle, marginTop: '10px' }}>
             Teste primeiro: com o modo teste ligado, envie uma mensagem para um lead de teste e veja o resultado na aba CRM. Só depois desligue o modo teste.
+          </div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h3 style={h3}>Piloto Gemini (CRM)</h3>
+          <p style={{ ...help, margin: '0 0 10px' }}>
+            O Gemini lê a tela do CRM e escolhe o próximo clique, como uma pessoa faria. A extensão valida cada ação: só grava depois de conferir o telefone do lead, digita ela mesma o comentário, respeita o modo teste e bloqueia ações perigosas (excluir, mover, enviar lead).
+          </p>
+          <label style={labelStyle}>
+            Quem conduz o registro no CRM
+            <select style={inputStyle} value={settings.crmAgent} onChange={e => setSettings({ ...settings, crmAgent: e.target.value as CrmAgentMode })}>
+              <option value="pilot">Gemini conduz (recomendado); fluxo fixo se o Gemini falhar</option>
+              <option value="fallback">Fluxo fixo primeiro; Gemini só se ele falhar antes de enviar</option>
+              <option value="off">Só o fluxo fixo (sem Gemini)</option>
+            </select>
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+            <label style={labelStyle}>
+              Modelo do Gemini
+              <input style={inputStyle} value={settings.geminiModel} onChange={e => setSettings({ ...settings, geminiModel: e.target.value.trim() })} />
+            </label>
+            <label style={labelStyle}>
+              Limite de chamadas por dia
+              <input type="number" min={1} style={inputStyle} value={settings.geminiDailyLimit}
+                onChange={e => setSettings({ ...settings, geminiDailyLimit: num(e.target.value, 1, 400) })} />
+            </label>
+          </div>
+          <label style={{ ...labelStyle, marginTop: '10px' }}>
+            Chave do Gemini (opcional se a extensão já veio com a do time)
+            <input type="password" autoComplete="off" style={inputStyle} value={gemKey} placeholder="Cole aqui para usar a sua própria chave" onChange={e => setGemKey(e.target.value)} />
+          </label>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+            <button style={ghostBtn} onClick={testGemini} disabled={gemTest.busy}><Icon name="bolt" size={15} /> {gemTest.busy ? 'Testando…' : 'Testar Gemini'}</button>
+            {gemStatus && (
+              <span style={{ fontSize: '12px', color: C.muted, fontWeight: 600 }}>
+                {gemStatus.configured ? `Chave: ${gemStatus.source === 'user' ? 'a sua' : 'do time'}` : 'Sem chave'} · hoje {gemStatus.usedToday}/{gemStatus.limit} chamadas
+              </span>
+            )}
+          </div>
+          {gemTest.text && <div style={{ ...(gemTest.ok ? {} : warnStyle), marginTop: '10px', fontSize: '12.5px', fontWeight: 600 }}>{gemTest.text}</div>}
+          <div style={{ ...warnStyle, marginTop: '10px' }}>
+            Privacidade: a cada passo o Gemini (Google) recebe o texto da tela do CRM e, quando a aba está na frente, uma imagem, incluindo nome, telefone e anotações do lead. Use só com a ciência do time.
           </div>
         </section>
 

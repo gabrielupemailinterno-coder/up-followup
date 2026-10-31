@@ -79,6 +79,20 @@ export interface AppSettings {
   crmDryRun: boolean            // modo teste: preenche o formulário mas NÃO envia
   crmFirstType: string          // tipo de atividade da 1ª mensagem ao lead
   crmFollowupType: string       // tipo de atividade dos envios seguintes
+  crmAgent: CrmAgentMode        // piloto Gemini no CRM
+  geminiModel: string           // modelo do Gemini usado pelo piloto
+  geminiDailyLimit: number      // máximo de chamadas ao Gemini por dia
+}
+
+/** off = só o fluxo fixo · fallback = fluxo fixo e, se falhar antes de gravar, o Gemini tenta · pilot = o Gemini conduz */
+export type CrmAgentMode = 'off' | 'fallback' | 'pilot'
+
+export interface GeminiStatus {
+  configured: boolean
+  source: 'user' | 'build' | 'none'
+  model: string
+  usedToday: number
+  limit: number
 }
 
 export interface SendLog {
@@ -237,6 +251,9 @@ export type BackgroundMessage =
   | { type: 'CRM_DISCARD'; payload: { id: string } }
   | { type: 'CRM_KICK' }
   | { type: 'WPP_STATUS' }
+  | { type: 'GEMINI_DECIDE'; payload: { system: string; prompt: string; wantScreenshot?: boolean } }
+  | { type: 'GEMINI_STATUS' }
+  | { type: 'GEMINI_TEST' }
 
 export type Reply<T = unknown> =
   | { ok: true; data?: T }

@@ -401,7 +401,7 @@
         </ol>
 
         <h4>Como funciona por baixo</h4>
-        <p>A extensão abre uma <strong>aba do CRM fixada, em segundo plano</strong>, só para isso, e a fecha quando não há mais nada a registrar. Seu trabalho nas outras abas do CRM não é interrompido. Para cada registro ela: (1) busca na tela <em>Leads</em> pelos 4 últimos dígitos do telefone e confere o número completo nos resultados, (2) abre o card do lead no <em>Funil</em>, (3) <strong>confere o telefone no painel do lead</strong>, (4) preenche tipo, comentário e envia, e (5) confirma que a atividade apareceu na lista.</p>
+        <p>A extensão abre uma <strong>aba do CRM fixada, em segundo plano</strong>, só para isso, e a fecha quando não há mais nada a registrar. Seu trabalho nas outras abas do CRM não é interrompido. Para cada registro ela: (1) busca na tela <em>Leads</em> pelos 4 últimos dígitos do telefone, (2) <strong>clica no nome do lead</strong> para abrir o painel, (3) <strong>confere o telefone no painel do lead</strong>, (4) preenche tipo e comentário e envia, e (5) confirma que a atividade apareceu na lista. Se houver mais de um lead com o mesmo telefone, ela não registra. Com o <strong>piloto Gemini</strong> ligado (Configurações &gt; Piloto Gemini), a inteligência artificial do Google escolhe os cliques olhando a tela, mas a extensão valida cada ação: só grava com o telefone conferido, digita ela mesma o comentário, respeita o modo teste e bloqueia ações como excluir, mover ou enviar lead. Se o Gemini estiver indisponível, o fluxo fixo assume. <strong>Privacidade:</strong> a cada passo o Google recebe o texto da tela do CRM (nome, telefone e anotações do lead)</p>
 
         <h4>Travas de segurança</h4>
         <table>

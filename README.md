@@ -4,6 +4,14 @@ Extensão de Chrome/Edge, na identidade visual da UP, que adiciona **agendamento
 
 > Ferramenta de **uso interno** da UP Consultoria Imobiliária.
 
+## Piloto Gemini (CRM)
+
+No CRM Incbook o Gemini pode conduzir o registro da atividade (lê a tela e escolhe o próximo clique); a extensão valida cada ação (telefone do lead conferido, comentário definido pelo código, modo teste respeitado, ações perigosas bloqueadas).
+
+- Chave do time embutida no build: crie `.env.local` na raiz (já ignorado pelo git) com `GEMINI_API_KEY=...` antes de `npm run build`/`npm run release`. O ZIP da release é público: restrinja a chave à Generative Language API e defina cota diária baixa no Google.
+- Chave individual: Configurações > Piloto Gemini > Chave do Gemini (guardada só no navegador, fora do backup).
+- A chave só é lida pelo service worker; as páginas do CRM e do WhatsApp nunca a veem.
+
 ## ⚡ Instalação rápida (time)
 
 Não precisa de Node nem de Git. Abra o terminal, cole **um** comando e siga os passos que ele mostrar.

@@ -6,16 +6,18 @@
  *     como uma pessoa faria, em modo teste ou de verdade conforme a configuração.
  */
 
-import type { CrmJob, CrmLead } from '../src/types'
+import type { CrmAgentMode, CrmJob, CrmLead } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { appendCrmTrace, getCrmJobs, getSettings, mergeCrmLeads, patchCrmJob } from '../src/storage'
-import { runJobStep } from '../src/crmDriver'
+import { runJobStep, type CrmPageAdapter, type StepResult } from '../src/crmDriver'
+import { geminiReady, runGeminiPilot } from './crm-agent'
 import { createCrmAdapter, describeCrmPage, leadsFromFunilPage, leadsFromLeadsPage, sleep, waitFor } from './crm-adapter'
 import { extensionAlive, safeInterval } from '../src/alive'
 
 const MAX_PAGE_LOADS_PER_JOB = 6
 const RUNNING_TIMEOUT_MS = 4 * 60_000
 const STEP_TIMEOUT_MS = 90_000   // nenhum passo pode passar disso: vira falha com o nome do passo
+const AGENT_TIMEOUT_MS = 5 * 60_000   // o piloto Gemini faz várias chamadas: precisa de mais folga
 
 // ─── Leitor ───────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,49 @@ function banner(text: string | null) {
 
 let activeJobId: string | null = null
 
+/** Escolhe quem conduz o registro: fluxo fixo, piloto Gemini, ou fixo com Gemini de reserva. */
+async function stepFor(
+  job: CrmJob,
+  adapter: CrmPageAdapter,
+  mode: CrmAgentMode,
+  note: (text: string, asMessage: boolean) => void
+): Promise<StepResult> {
+  const say = (t: string) => note(t, true)
+  const trace = (t: string) => note(t, false)
+
+  if (mode === 'pilot') {
+    if (adapter.path() !== '/leads') return { kind: 'navigating', to: '/leads' }
+    const ready = await geminiReady()
+    if (ready.ok) {
+      say('Piloto Gemini conduzindo o registro…')
+      const out = await runGeminiPilot(job, adapter, trace)
+      if (out.kind === 'finished') return out
+      trace(`Gemini indisponível (${out.message}): usando o fluxo fixo`)
+    } else {
+      trace(`Piloto Gemini não usado (${ready.reason}): usando o fluxo fixo`)
+    }
+    return runJobStep(job, adapter, say)
+  }
+
+  if (mode === 'fallback') {
+    let submitted = false
+    const guarded: CrmPageAdapter = { ...adapter, submit: async () => { submitted = true; return adapter.submit() } }
+    const r = await runJobStep(job, guarded, say)
+    // Só tenta o Gemini se o fluxo fixo falhou ANTES de enviar: depois de enviar, repetir duplicaria a atividade.
+    if (r.kind === 'finished' && r.status === 'failed' && !submitted && adapter.path() === '/leads') {
+      const ready = await geminiReady()
+      if (ready.ok) {
+        trace(`Fluxo fixo falhou (${r.message}): tentando o piloto Gemini`)
+        const out = await runGeminiPilot(job, adapter, trace)
+        if (out.kind === 'finished') return out
+      }
+    }
+    return r
+  }
+
+  return runJobStep(job, adapter, say)
+}
+
 async function runDriver() {
   const adapter = createCrmAdapter(text => { if (activeJobId) void appendCrmTrace(activeJobId, text).catch(() => {}) })
   await sleep(2500) // dá tempo da página do CRM terminar de montar
@@ -114,7 +159,8 @@ async function runDriver() {
 
     let result
     try {
-      result = await withTimeout(runJobStep(job, adapter, text => note(text, true)), STEP_TIMEOUT_MS, () => lastStep)
+      const mode = (await getSettings()).crmAgent
+      result = await withTimeout(stepFor(job, adapter, mode, note), mode === 'off' ? STEP_TIMEOUT_MS : AGENT_TIMEOUT_MS, () => lastStep)
     } catch (err) {
       const msg = `Travou: ${err instanceof Error ? err.message : String(err)}. ${describeCrmPage()}`
       note(msg, false)

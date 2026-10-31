@@ -3,27 +3,25 @@
  * Não toca no DOM: fala com o CRM por um adaptador (content/crm-adapter.ts), o que permite testar
  * toda a lógica de segurança sem abrir o CRM.
  *
- * Fluxo (a navegação recarrega a página, então o estado fica no próprio job):
- *   /leads  : busca o telefone formatado e descobre o id do lead (exatamente 1 resultado)
- *   /funil  : abre o card pelo id, CONFERE o telefone no painel, preenche e (fora do modo teste) envia
+ * Fluxo (tudo na tela /leads, sem recarregar):
+ *   busca os 4 últimos dígitos do telefone, abre o lead clicando no nome, CONFERE o telefone no painel,
+ *   preenche a atividade e (fora do modo teste) envia.
  */
 
 import type { CrmJob } from './types'
 import { CRM_PAGE_SIZE, formatPhoneForCrm, phoneSearchQueries, samePhone } from './crm'
 
-export interface LeadHit {
-  id: string
-  name: string
-  phones: string[]
-}
+/** Quantas linhas da busca estamos dispostos a abrir e conferir, uma a uma. */
+export const MAX_ROW_CANDIDATES = 5
 
 export interface CrmPageAdapter {
   path(): string
-  /** Navegação completa; o script é reiniciado na página seguinte e o job continua. */
+  /** Navegação para outra tela do CRM (preferir o link do menu). */
   goto(path: string): void
-  /** Digita `query` na busca do CRM e devolve os leads listados (até uma página). */
-  searchLeadsByPhone(query: string): Promise<LeadHit[]>
-  openLeadCard(leadId: string, leadName: string): Promise<boolean>
+  /** Digita `query` na busca da tela Leads e devolve quantas linhas a lista mostra depois de atualizar. */
+  searchLeadRows(query: string): Promise<number>
+  /** Clica no nome do lead da linha `index` e espera o painel abrir. */
+  openLeadRow(index: number): Promise<boolean>
   readModalPhones(): string[]
   openActivityForm(): Promise<boolean>
   selectActivityType(label: string): Promise<{ ok: boolean; available?: string[] }>
@@ -47,53 +45,56 @@ export async function runJobStep(
   page: CrmPageAdapter,
   onStep: (text: string) => void = () => {}
 ): Promise<StepResult> {
-  // 1) Descobrir o lead pelo telefone, se ainda não sabemos
-  if (!job.leadId) {
-    if (page.path() !== '/leads') return { kind: 'navigating', to: '/leads' }
-    onStep('Buscando o lead no CRM…')
-    const queries = phoneSearchQueries(job.phone)
-    if (queries.length === 0) return fail('Telefone fora do formato brasileiro: não dá para buscar no CRM.')
-    const shown = formatPhoneForCrm(job.phone) ?? job.phone
+  // 1) Ir para a tela Leads
+  if (page.path() !== '/leads') return { kind: 'navigating', to: '/leads' }
 
-    // Busca pelos 4 últimos dígitos (tolerante ao formato) e CONFERE o telefone completo nos resultados.
-    // Só considera o resultado confiável se a lista não vier truncada (página cheia).
-    let matching: LeadHit[] = []
-    let reliable = false
-    for (const q of queries) {
-      const hits = await page.searchLeadsByPhone(q)
-      const found = hits.filter(h => h.phones.some(p => samePhone(p, job.phone)))
-      const complete = hits.length < CRM_PAGE_SIZE
-      if (found.length > 0) {
-        matching = found
-        reliable = complete
-        if (complete) break          // achou e a lista não veio cortada: confiável
-      }
-      // sem resultado (ou lista cortada): tenta a próxima consulta, mais específica ou em outro formato
+  // 2) Buscar pelo final do telefone e abrir o lead que confere
+  onStep('Buscando o lead no CRM…')
+  const queries = phoneSearchQueries(job.phone)
+  if (queries.length === 0) return fail('Telefone fora do formato brasileiro: não dá para buscar no CRM.')
+  const shown = formatPhoneForCrm(job.phone) ?? job.phone
+
+  let sawRows = false
+  let openFailed = false
+  let tooMany = false
+  let opened = false
+  for (const q of queries) {
+    const rows = await page.searchLeadRows(q)
+    if (rows === 0) continue
+    sawRows = true
+    if (rows >= CRM_PAGE_SIZE || rows > MAX_ROW_CANDIDATES) { tooMany = true; continue }   // consulta mais específica na próxima
+
+    if (rows === 1) {
+      onStep('Abrindo o lead (clicando no nome)…')
+      if (!(await page.openLeadRow(0))) { openFailed = true; continue }
+      if (page.readModalPhones().some(p => samePhone(p, job.phone))) { opened = true; break }
+      await page.closeModal()
+      continue
     }
-    if (matching.length === 0) {
-      return fail(`Lead não encontrado entre os leads deste usuário no CRM (telefone ${shown}, buscado de ${queries.length} formas). Confira se o lead existe, se é seu e qual telefone está cadastrado.`)
+
+    // Várias linhas: abre cada uma e confere o telefone no painel. Dois leads com o mesmo telefone = ambíguo.
+    const matches: number[] = []
+    for (let i = 0; i < rows; i++) {
+      onStep(`Conferindo o lead ${i + 1} de ${rows}…`)
+      if (!(await page.openLeadRow(i))) { openFailed = true; continue }
+      if (page.readModalPhones().some(p => samePhone(p, job.phone))) matches.push(i)
+      await page.closeModal()
     }
-    if (matching.length > 1) {
-      return { kind: 'finished', status: 'skipped', message: `Há ${matching.length} leads com o telefone ${shown}. Registre manualmente para não errar o lead.` }
+    if (matches.length > 1) {
+      return { kind: 'finished', status: 'skipped', message: `Há ${matches.length} leads com o telefone ${shown}. Registre manualmente para não errar o lead.` }
     }
-    if (!reliable) {
-      return { kind: 'finished', status: 'skipped', message: `A busca do CRM por ${shown} devolveu muitos resultados e não dá para garantir que o lead é único. Registre manualmente.` }
+    if (matches.length === 1) {
+      if (!(await page.openLeadRow(matches[0]))) { openFailed = true; continue }
+      if (page.readModalPhones().some(p => samePhone(p, job.phone))) { opened = true; break }
+      await page.closeModal()
     }
-    return { kind: 'navigating', to: '/funil', patch: { leadId: matching[0].id, leadName: matching[0].name } }
   }
 
-  // 2) Abrir o card no funil
-  if (page.path() !== '/funil') return { kind: 'navigating', to: '/funil' }
-  onStep('Abrindo o lead no funil…')
-  const opened = await page.openLeadCard(job.leadId, job.leadName ?? '')
-  if (!opened) return fail('Não achei o card deste lead no funil (pode ser de outro corretor ou estar fora do filtro).')
-
-  // 3) Trava anti-lead-errado: o telefone do painel aberto tem que bater
-  onStep('Conferindo o telefone do lead…')
-  const phones = page.readModalPhones()
-  if (!phones.some(p => samePhone(p, job.phone))) {
-    await page.closeModal()
-    return fail('O telefone do lead aberto não confere com o da conversa. Nada foi registrado.')
+  if (!opened) {
+    if (openFailed) return fail('Achei linhas na busca, mas não consegui abrir o lead clicando no nome. Veja o rastro na aba CRM.')
+    if (tooMany && !sawRows) return fail('A busca devolveu muitos resultados. Registre manualmente.')
+    if (!sawRows) return fail(`Nenhum lead encontrado na busca (telefone ${shown}, ${queries.length} formas). Confira se o lead existe, se é seu e qual telefone está cadastrado.`)
+    return fail(`Nenhum dos leads encontrados tem o telefone ${shown} no cadastro. Nada foi registrado.`)
   }
 
   // 4) Preencher o formulário
