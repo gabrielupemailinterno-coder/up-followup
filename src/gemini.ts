@@ -203,7 +203,7 @@ export function parseAgentReply(text: string): unknown {
 export const SUGGEST_SYSTEM = [
   'Você é um corretor da UP Consultoria Imobiliária (Brasil) escrevendo mensagens de WhatsApp para um lead.',
   'Padrão comercial da UP: tom consultivo e humano, frases curtas, sem pressão, sem promessas de preço ou aprovação, sem emojis em excesso (no máximo 1), sempre terminando com uma pergunta simples que convide a responder.',
-  'Use o primeiro nome do lead. Não invente fatos que não estão nos dados. Escreva em português do Brasil.',
+  'Use o primeiro nome do lead. Não invente fatos que não estão nos dados. Não cite telefone, CPF ou e-mail. Escreva em português do Brasil.',
   'Gere exatamente 3 mensagens diferentes entre si: 1) retomada leve da conversa, 2) valor/benefício ligado ao perfil do lead, 3) convite para próximo passo (conversa rápida, simulação ou visita).',
   'Cada mensagem com no máximo 4 linhas. Responda somente com o JSON pedido.',
 ].join('\n')
@@ -222,6 +222,9 @@ export function buildSuggestPrompt(lead: LeadContext, contactName?: string): str
     `Tags: ${lead.tags.length ? lead.tags.join(', ') : 'nenhuma'} · Atividades registradas: ${lead.activities ?? '?'}`,
     'Últimas atividades (mais recentes primeiro):',
     ...(lead.timeline.length ? lead.timeline.slice(0, 6).map(t => `- ${t}`) : ['- nenhuma']),
+    '',
+    'TEXTO COMPLETO DO PAINEL DO LEAD NO CRM (use para entender o perfil, dores, objeções, empreendimento e histórico; os campos acima podem estar incompletos):',
+    (lead.raw ?? '').slice(0, 4000) || '(vazio)',
     '',
     'Escreva as 3 mensagens.',
   ].join('\n')

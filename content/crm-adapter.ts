@@ -276,13 +276,21 @@ export function filteredCountText(): string {
 }
 
 /** Telefones do painel do lead: campos de telefone ou os "chips" com o número (como na tela real). */
+/** Só o texto do próprio elemento (sem o dos filhos): chips com ícone ao lado continuam legíveis. */
+export function ownText(el: Element): string {
+  return [...el.childNodes].filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.textContent ?? '').join(' ').replace(/\s+/g, ' ').trim()
+}
+
 export function readPhonesIn(root: ParentNode): string[] {
   const out = new Set<string>()
-  for (const i of root.querySelectorAll<HTMLInputElement>('input[name^="telefone"]')) if (i.value) out.add(i.value)
-  for (const el of root.querySelectorAll<HTMLElement>('span, div, p, a')) {
-    if (el.children.length > 0) continue
-    const t = (el.textContent ?? '').trim()
-    if (/^\+?\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/.test(t)) out.add(t)
+  for (const i of root.querySelectorAll<HTMLInputElement>('input[name^="telefone"], input[type="tel"]')) if (i.value) out.add(i.value.trim())
+  for (const el of root.querySelectorAll<HTMLElement>('span, div, p, a, td, li')) {
+    const own = ownText(el)
+    const short = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+    for (const t of [own, short.length <= 24 ? short : '']) {
+      const m = t.match(/\+?\(?\d{2}\)?\s?\d{4,5}-?\s?\d{4}/)
+      if (m && !/\d{3}\.\d{3}\.\d{3}/.test(t)) out.add(m[0])   // ignora CPF
+    }
   }
   return [...out]
 }
@@ -290,7 +298,7 @@ export function readPhonesIn(root: ParentNode): string[] {
 /** Valor de um campo do painel pelo rótulo (ex.: "Etapa", "Persona"): texto do seletor, do campo ou do vizinho. */
 export function fieldByLabel(root: ParentNode, label: RegExp): string | null {
   const lab = [...root.querySelectorAll<HTMLElement>('label, span, div, p, h4, h5')]
-    .find(e => e.children.length <= 1 && label.test((e.textContent ?? '').trim()))
+    .find(e => label.test(ownText(e)) || (e.children.length <= 1 && label.test((e.textContent ?? '').trim())))
   for (let box: HTMLElement | null = lab?.parentElement ?? null, i = 0; box && i < 3; box = box.parentElement, i++) {
     const items = [...box.querySelectorAll('.ant-select-selection-item')].map(x => (x.textContent ?? '').trim()).filter(Boolean)
     if (items.length) return items.join(', ')
@@ -305,7 +313,10 @@ export function readLeadContext(): LeadContext | null {
   const root = modalEl()
   if (!root || !/informa[cç][oõ]es do lead/i.test(root.textContent ?? '')) return null
   const clean = (t: string | null | undefined) => (t ?? '').replace(/\s+/g, ' ').trim()
-  const nameInput = [...root.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')].find(i => i.value && !/\d{4}/.test(i.value))
+  // nome: subtítulo logo abaixo de "Informações do Lead"; senão o primeiro campo de texto sem números
+  const title = [...root.querySelectorAll<HTMLElement>('*')].find(e => /^informa[cç][oõ]es do lead$/i.test(ownText(e)))
+  const subtitle = clean(title?.nextElementSibling?.textContent) || clean(title?.parentElement?.nextElementSibling?.textContent)
+  const nameInput = [...root.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')].find(i => i.value && !/\d{3}/.test(i.value))
   // linha do tempo: cada atividade começa com o tipo ("1 - Tentativa de contato", "4B - Follow-up realizado")
   const timeline: string[] = []
   for (const el of root.querySelectorAll<HTMLElement>('span, div, p, strong')) {
@@ -319,7 +330,7 @@ export function readLeadContext(): LeadContext | null {
   const count = [...root.querySelectorAll<HTMLElement>('button, [role="tab"], div, span, li')]
     .map(e => clean(e.textContent).match(/^Todas\s*(\d+)$/i)).find(Boolean)
   return {
-    name: clean(nameInput?.value) || '',
+    name: (subtitle && subtitle.length <= 60 ? subtitle : '') || clean(nameInput?.value) || '',
     phones: readPhonesIn(root),
     stage: fieldByLabel(root, /^etapa$/i),
     persona: fieldByLabel(root, /^persona$/i),
@@ -328,6 +339,7 @@ export function readLeadContext(): LeadContext | null {
     tags,
     activities: count ? Number(count[1]) : null,
     timeline: timeline.slice(0, 8),
+    raw: ((root as HTMLElement).innerText ?? '').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 4000),
   }
 }
 

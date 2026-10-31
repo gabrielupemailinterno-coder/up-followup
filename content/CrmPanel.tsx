@@ -53,14 +53,21 @@ function CrmPanelApp() {
 
   // trocou de lead: as sugestões antigas não valem mais
   const leadKey = lead ? `${lead.name}|${lead.phones.join()}` : ''
-  React.useEffect(() => { setItems([]); setError(null) }, [leadKey])
+  const [nameEdit, setNameEdit] = React.useState('')
+  const [phoneEdit, setPhoneEdit] = React.useState('')
+  React.useEffect(() => {
+    setItems([]); setError(null)
+    setNameEdit(lead?.name ?? '')
+    setPhoneEdit(lead?.phones[0] ?? '')
+  }, [leadKey])
 
-  const phone = lead?.phones.map(p => normalizePhone(p)).find((p): p is string => !!p) ?? null
+  // o corretor pode corrigir nome e telefone se a leitura da tela errar
+  const phone = normalizePhone(phoneEdit)
 
   async function suggest() {
     if (!lead) return
     setBusy(true); setError(null)
-    const r = await sendToBackground<{ messages: string[] }>({ type: 'GEMINI_SUGGEST', payload: { lead } })
+    const r = await sendToBackground<{ messages: string[] }>({ type: 'GEMINI_SUGGEST', payload: { lead: { ...lead, name: nameEdit.trim() || lead.name } } })
     setBusy(false)
     if (!r.ok) return setError(r.message)
     const when = toLocalInput(Date.now() + 60 * 60_000)
@@ -76,7 +83,7 @@ function CrmPanelApp() {
     const now = Date.now()
     const msg: ScheduledMessage = {
       id: `msg_${now}_${Math.random().toString(36).slice(2)}`,
-      contactName: lead.name || 'Lead',
+      contactName: nameEdit.trim() || lead.name || 'Lead',
       phone,
       message: items[i].text.trim(),
       vars: {},
@@ -129,11 +136,15 @@ function CrmPanelApp() {
           {lead && (
             <>
               <div style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: R.md, padding: '10px 12px', fontSize: '12.5px', lineHeight: 1.6 }}>
-                <div style={{ fontWeight: 800, fontSize: '14px' }}>{lead.name || 'Lead sem nome'}</div>
-                <div>{lead.phones.join(' · ') || 'Sem telefone'}</div>
-                <div style={{ color: C.muted }}>Etapa: {lead.stage ?? '?'} · Atividades: {lead.activities ?? '?'}{lead.persona ? ` · ${lead.persona}` : ''}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '6px' }}>
+                  <input aria-label="Nome do lead" style={{ ...inputStyle, fontWeight: 700 }} value={nameEdit} placeholder="Nome" onChange={e => setNameEdit(e.target.value)} />
+                  <input aria-label="Telefone do lead" style={inputStyle} value={phoneEdit} placeholder="(31) 99999-9999" onChange={e => setPhoneEdit(e.target.value)} />
+                </div>
+                {lead.phones.length > 1 && <div style={{ color: C.muted }}>Outros telefones: {lead.phones.slice(1).join(' · ')}</div>}
+                <div style={{ color: C.muted }}>Etapa: {lead.stage ?? '?'} · Temperatura: {lead.temperature ?? '?'} · Atividades: {lead.activities ?? '?'}</div>
+                <div style={{ color: C.muted }}>{[lead.persona && `Persona: ${lead.persona}`, lead.campaign && `Campanha: ${lead.campaign}`].filter(Boolean).join(' · ') || 'Persona/campanha não lidas (o Gemini lê o painel inteiro)'}</div>
               </div>
-              {!phone && <div style={{ ...errorStyle, marginTop: '10px' }}>Não achei um telefone válido neste lead.</div>}
+              {!phone && <div style={{ ...errorStyle, marginTop: '10px' }}>Telefone inválido: corrija o número acima para poder enviar.</div>}
 
               <button style={{ ...primaryBtn(busy || !phone), width: '100%', marginTop: '12px' }} disabled={busy || !phone} onClick={suggest}>
                 <Icon name="bot" size={15} /> {busy ? 'Gemini pensando…' : items.length ? 'Sugerir outras 3' : 'Sugerir 3 mensagens com o Gemini'}

@@ -225,6 +225,8 @@ export interface LeadContext {
   tags: string[]
   activities: number | null
   timeline: string[]
+  /** Texto completo do painel do lead (o Gemini lê tudo, mesmo o que os campos acima não pegaram). */
+  raw: string
 }
 
 /** Resultado da última tentativa de enfileirar uma atividade do CRM (para explicar o que aconteceu). */
