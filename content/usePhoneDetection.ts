@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { detectPhoneViaInfoPanel, type CurrentContact } from './whatsapp-bridge'
+import { detectPhone, type CurrentContact } from './whatsapp-bridge'
 
 /**
  * Tenta descobrir o telefone da conversa aberta pelo painel "Dados do contato".
@@ -14,9 +14,9 @@ export function usePhoneDetection(contact: CurrentContact | null, onFound: (phon
   const run = useCallback(() => {
     setDetecting(true)
     setFailed(false)
-    void detectPhoneViaInfoPanel()
-      .then(phone => {
-        if (phone) found.current(phone)
+    void detectPhone()
+      .then(r => {
+        if (r.phone) found.current(r.phone)
         else setFailed(true)
       })
       .catch(() => setFailed(true))

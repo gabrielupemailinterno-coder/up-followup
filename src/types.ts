@@ -230,6 +230,7 @@ export type BackgroundMessage =
   | { type: 'CRM_RETRY'; payload: { id: string } }
   | { type: 'CRM_DISCARD'; payload: { id: string } }
   | { type: 'CRM_KICK' }
+  | { type: 'WPP_STATUS' }
 
 export type Reply<T = unknown> =
   | { ok: true; data?: T }

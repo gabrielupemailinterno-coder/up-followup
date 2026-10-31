@@ -8,6 +8,7 @@
 # Variáveis opcionais (defina antes de rodar):
 #   $env:UP_NO_OPEN = "1"          não abre o navegador nem o manual
 #   $env:UP_FOLLOWUP_DIR = "C:\x"  outra pasta de destino
+#   $env:UP_FOLLOWUP_TAG = "vX.Y.Z"  instala uma versão específica (inclusive pré-lançamento)
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # acelera o download no Windows PowerShell 5
@@ -38,7 +39,7 @@ if ((Test-Path $Dest) -and (Get-ChildItem $Dest -Force | Select-Object -First 1)
 $Tmp = Join-Path ([IO.Path]::GetTempPath()) ("up-followup-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 try {
-    $Url = "https://github.com/$Repo/releases/latest/download/$Asset"
+    $Url = if ($env:UP_FOLLOWUP_TAG) { "https://github.com/$Repo/releases/download/$($env:UP_FOLLOWUP_TAG)/$Asset" } else { "https://github.com/$Repo/releases/latest/download/$Asset" }
     $Zip = Join-Path $Tmp $Asset
     Say 'Baixando a versão mais recente…'
     try { Invoke-WebRequest -Uri $Url -OutFile $Zip -UseBasicParsing }

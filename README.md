@@ -55,6 +55,16 @@ Está dentro da extensão (ícone UP, livro) e em PDF na página de [Releases](h
 - **CRM Incbook:** lê seus leads, mostra a etapa do lead no WhatsApp, lista leads sem ação e registra a atividade no lead certo depois de cada envio (opera a tela do CRM como uma pessoa; começa em **modo teste**, que preenche mas não envia).
 - **Backup** em JSON e CSV.
 
+## 🔌 WA-JS (biblioteca para falar com o WhatsApp Web)
+
+A extensão embute o [WA-JS](https://github.com/wppconnect-team/wa-js) (Apache-2.0), **versão fixada com checksum**, que roda na página do WhatsApp Web. Hoje serve para: descobrir o telefone da conversa aberta e verificar se um número tem WhatsApp. **Se ele não carregar, tudo continua funcionando pelo método antigo.**
+
+- **Privacidade:** o WA-JS vem com Google Analytics ligado e com servidores de terceiros para pré-visualização de links. A extensão desliga tudo isso antes de ele carregar (`public/bridge/wm-wpp-config.js`), e a ponte recusa qualquer chamada se o rastreamento não estiver desligado.
+- **Só leitura:** a ponte (`public/bridge/wm-wpp-bridge.js`) aceita uma lista curta de métodos de leitura; não envia mensagens e não devolve nomes nem conteúdo.
+- **Checagem:** em Configurações > *Diagnóstico do WhatsApp (WA-JS)* há um teste que mostra se carregou, a versão do WhatsApp e se o rastreamento está desligado.
+- **Atualizar o WA-JS (só quem mantém):** `scripts/update-wajs.sh vX.Y.Z` baixa, confere o checksum publicado pelo GitHub e lista os endereços de rede embutidos para revisão. O `npm run build` falha se o arquivo não bater com o checksum de `public/vendor/wa-js/VERSION.json`.
+- **Pré-lançamentos:** `npm run release -- --prerelease` não vira a versão padrão do time. Para instalar uma versão específica: `UP_FOLLOWUP_TAG=v1.6.0 bash install.sh` (Mac) ou `$env:UP_FOLLOWUP_TAG="v1.6.0"` antes do comando do PowerShell.
+
 ## ⚠️ Avisos importantes
 
 - Os alarmes **só funcionam com o computador ligado e o Chrome aberto**.
@@ -70,7 +80,7 @@ Requer Node 18+.
 git clone https://github.com/gabrielupemailinterno-coder/up-followup.git
 cd up-followup
 npm install
-npm run dev        # build em modo watch
+npm run dev        # build em modo watch (não injeta o WA-JS; use npm run build para testar no Chrome)
 npm run typecheck  # verifica tipos
 npm run build      # gera dist/ (carregue esta pasta no Chrome)
 npm run pack       # build + releases/whatsapp-web-mod-vX.Y.Z.zip

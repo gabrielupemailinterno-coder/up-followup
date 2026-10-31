@@ -1,0 +1,17 @@
+{
+  "name": "@wppconnect/wa-js",
+  "tag": "v4.7.2",
+  "asset": "wppconnect-wa.js",
+  "source": "https://github.com/wppconnect-team/wa-js/releases/tag/v4.7.2",
+  "sha256": "97aca719c9ef8e618e7941425920451139def9bd70f5d8449c24864f406dfc85",
+  "githubDigestChecked": true,
+  "retrievedAt": "2026-10-31",
+  "license": "Apache-2.0",
+  "audit": {
+    "externalHosts": [
+      "analytics.google.com (Google Analytics, ligado por padrão): DESLIGADO por public/bridge/wm-wpp-config.js (disableGoogleAnalytics=true)",
+      "cobrancas.uppermesh.com.br, wajsapi.titanchat.com.br, wppc-linkpreview.cloudtrix.com.br (servidores padrão de pré-visualização de link): NEUTRALIZADOS com linkPreviewApiServers=[]"
+    ],
+    "howToReaudit": "scripts/update-wajs.sh <tag> baixa, confere o digest do GitHub e lista todos os hosts embutidos"
+  }
+}

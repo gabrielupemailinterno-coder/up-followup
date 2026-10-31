@@ -754,6 +754,18 @@ async function handle(msg: BackgroundMessage, sender?: chrome.runtime.MessageSen
     case 'CRM_KICK':
       await kickCrmDriver(true)
       return { ok: true }
+
+    case 'WPP_STATUS': {
+      const tabs = await chrome.tabs.query({ url: 'https://web.whatsapp.com/*' })
+      const tabId = tabs[0]?.id
+      if (tabId === undefined) return fail('NO_WA_TAB', 'Abra o WhatsApp Web para testar.')
+      try {
+        const reply = await chrome.tabs.sendMessage(tabId, { type: 'WPP_STATUS' })
+        return { ok: true, data: reply }
+      } catch {
+        return fail('NO_CONTENT_SCRIPT', 'A extensão ainda não está ativa nesta aba do WhatsApp. Dê F5 na aba e tente de novo.')
+      }
+    }
   }
 }
 

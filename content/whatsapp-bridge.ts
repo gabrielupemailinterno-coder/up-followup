@@ -5,6 +5,7 @@
 
 import { queryFirst } from './selectors'
 import { phoneFromText } from '../src/phone'
+import { interpretActiveChat, wppCall, type ActiveChatInfo } from '../src/wpp'
 
 export interface CurrentContact {
   name: string
@@ -86,6 +87,26 @@ export function detectPhoneViaInfoPanel(): Promise<string | null> {
     }
   })()
   return phoneDetection
+}
+
+export interface PhoneDetection {
+  phone: string | null
+  /** wpp = WA-JS; panel = painel "Dados do contato" (plano B); none = não achou */
+  via: 'wpp' | 'panel' | 'none'
+  isGroup: boolean
+}
+
+/**
+ * Telefone da conversa aberta. Primeiro pergunta ao WA-JS (rápido e sem mexer na tela);
+ * se ele não estiver disponível ou não souber, cai para o método antigo (abrir o painel e ler).
+ */
+export async function detectPhone(): Promise<PhoneDetection> {
+  const r = await wppCall<ActiveChatInfo | null>('getActiveChat', undefined, 3500)
+  const info = interpretActiveChat(r)
+  if (info.isGroup) return { phone: null, via: 'wpp', isGroup: true }
+  if (info.phone) return { phone: info.phone, via: 'wpp', isGroup: false }
+  const panel = await detectPhoneViaInfoPanel()
+  return { phone: panel, via: panel ? 'panel' : 'none', isGroup: false }
 }
 
 export type ComposeState =

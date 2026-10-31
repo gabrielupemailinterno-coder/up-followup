@@ -53,7 +53,7 @@
       <h1>Manual do Follow-up UP para WhatsApp Web</h1>
       <p class="lead">Como instalar e como usar a extensão que organiza seus leads, agenda follow-ups e mantém sua rotina comercial em dia.</p>
       <div class="meta">
-        <span>Versão <b data-version>1.5.5</b></span>
+        <span>Versão <b data-version>1.6.0</b></span>
         <span>Atualizado em 30/10/2026</span>
         <span>Chrome e Edge</span>
       </div>
@@ -249,7 +249,7 @@
         <ol>
           <li>Abra a conversa do lead.</li>
           <li>Menu UP &gt; <strong>Salvar no Kanban</strong>.</li>
-          <li>Confira o <strong>telefone</strong>. O sistema o detecta sozinho: ele abre por um instante o painel <em>Dados do contato</em> do WhatsApp, lê o número e fecha o painel. Se não conseguir (por exemplo, em grupos), clique em <em>Detectar do WhatsApp</em> ou digite com DDD, como <code>(31) 99999-9999</code>.</li>
+          <li>Confira o <strong>telefone</strong>. O sistema o detecta sozinho: ele abre por um instante o painel <em>Dados do contato</em> do WhatsApp, lê o número e fecha o painel. Se não conseguir (por exemplo, em grupos), clique em <em>Detectar do WhatsApp</em> ou digite com DDD, como <code>(31) 99999-9999</code>. Ao lado do telefone há também <em>Verificar se tem WhatsApp</em>, que consulta se o número existe antes de você agendar.</li>
           <li>Escolha a etapa e clique em <strong>Salvar contato</strong>.</li>
         </ol>
         <div class="callout info"><div><b class="h">Por que o telefone?</b><p>Todo o sistema identifica o lead pelo <strong>telefone</strong>, nunca pelo nome. Isso evita enviar mensagem para a pessoa errada quando há nomes iguais. Cada telefone só pode existir uma vez no Kanban.</p></div></div>
@@ -497,6 +497,8 @@
 
         <div class="qa"><h4>Apareceu “Extension context invalidated” na página de extensões</h4><p>É normal logo depois de <strong>atualizar</strong> a extensão: as abas que já estavam abertas (WhatsApp Web e CRM) ainda rodam o script da versão antiga. Depois de atualizar, dê <span class="kbd">F5</span> no WhatsApp Web e no CRM e, em <code>chrome://extensions</code>, clique em <em>Remover tudo</em> na lista de erros. A partir da v1.5.3 esses scripts antigos se desligam sozinhos.</p></div>
 
+        <div class="qa"><h4>“Não consegui verificar” ao checar se o número tem WhatsApp</h4><p>A verificação usa uma biblioteca na página do WhatsApp (WA-JS). Ela precisa de alguns segundos depois que o WhatsApp Web carrega. Aguarde e tente de novo, ou dê <span class="kbd">F5</span>. Em <em>Configurações &gt; Diagnóstico do WhatsApp (WA-JS)</em> o botão <em>Testar agora</em> mostra o que está acontecendo. Mesmo sem ela, a extensão continua funcionando: o telefone é detectado pelo painel <em>Dados do contato</em>.</p></div>
+
         <div class="qa"><h4>Perdi meus dados</h4><p>Os dados ficam no navegador. Se removeu a extensão ou limpou os dados do navegador, restaure o último backup em Configurações &gt; <em>Importar backup</em>. Por isso exporte backups com frequência.</p></div>
 
         <div class="qa"><h4>Posso usar em dois computadores?</h4><p>Pode instalar nos dois, mas cada um terá seus próprios dados. Para levar leads de um para o outro, exporte o backup em um e importe no outro (a importação substitui os dados do destino).</p></div>
@@ -526,7 +528,7 @@
 
     <footer class="foot">
       <span>UP Consultoria Imobiliária · Uso interno da equipe</span>
-      <span>Follow-up UP v<span data-version>1.5.5</span> · Atualizado em 30/10/2026</span>
+      <span>Follow-up UP v<span data-version>1.6.0</span> · Atualizado em 30/10/2026</span>
     </footer>
   </main>
 </div>

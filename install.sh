@@ -8,7 +8,8 @@
 #
 # Opções (use "bash -s -- OPÇÃO" quando rodar via curl):
 #   --no-open   não abre o Chrome nem o manual
-# Variável opcional: UP_FOLLOWUP_DIR=/outro/caminho
+# Variáveis opcionais: UP_FOLLOWUP_DIR=/outro/caminho   UP_FOLLOWUP_TAG=vX.Y.Z (instala uma versão específica,
+# inclusive pré-lançamentos; sem ela, instala a mais recente estável)
 
 set -euo pipefail
 
@@ -44,7 +45,12 @@ trap 'rm -rf "$TMP"' EXIT
 
 version_of() { sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$1" | head -1; }
 
-URL="https://github.com/$REPO/releases/latest/download/$ASSET"
+if [ -n "${UP_FOLLOWUP_TAG:-}" ]; then
+  URL="https://github.com/$REPO/releases/download/$UP_FOLLOWUP_TAG/$ASSET"
+  say "Versão pedida: $UP_FOLLOWUP_TAG"
+else
+  URL="https://github.com/$REPO/releases/latest/download/$ASSET"
+fi
 say "Baixando a versão mais recente…"
 curl -fL --progress-bar -o "$TMP/$ASSET" "$URL" || die "Não consegui baixar $URL. Verifique a internet e se já existe uma release publicada."
 

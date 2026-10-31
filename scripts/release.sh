@@ -3,13 +3,17 @@
 #
 #   1. Atualize "version" em package.json e manifest.json (e a versão no manual)
 #   2. git commit && git push
-#   3. npm run release
+#   3. npm run release             (versão estável: vira a "latest" que o time instala)
+#      npm run release -- --prerelease   (pré-lançamento: NÃO vira a "latest"; instale com UP_FOLLOWUP_TAG=vX.Y.Z)
 #
 # Gera up-followup.zip + manual em PDF e cria a release "vX.Y.Z" no GitHub.
 # O instalador do time (install.sh / install.ps1) sempre baixa a release mais recente.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+PRERELEASE=0
+for a in "$@"; do [ "$a" = "--prerelease" ] && PRERELEASE=1; done
 
 command -v gh  >/dev/null || { echo "Instale o GitHub CLI (gh) e rode 'gh auth login'." >&2; exit 1; }
 command -v zip >/dev/null || { echo "Instale o zip." >&2; exit 1; }
@@ -48,9 +52,16 @@ else
 fi
 
 echo "==> Criando a release v$VERSION no GitHub"
-gh release create "v$VERSION" "${ASSETS[@]}" \
-  --title "Follow-up UP v$VERSION" \
-  --notes "Versão $VERSION. Para instalar ou atualizar, veja o README (comando de uma linha)." \
-  --latest
+if [ "$PRERELEASE" = "1" ]; then
+  gh release create "v$VERSION" "${ASSETS[@]}" \
+    --title "Follow-up UP v$VERSION (pré-lançamento)" \
+    --notes "Pré-lançamento $VERSION: ainda em validação, NÃO é a versão instalada pelo comando padrão. Instale com UP_FOLLOWUP_TAG=v$VERSION." \
+    --prerelease
+else
+  gh release create "v$VERSION" "${ASSETS[@]}" \
+    --title "Follow-up UP v$VERSION" \
+    --notes "Versão $VERSION. Para instalar ou atualizar, veja o README (comando de uma linha)." \
+    --latest
+fi
 
 echo "==> Pronto. Time: rode o comando do instalador de novo para atualizar."

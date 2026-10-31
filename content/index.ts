@@ -5,6 +5,7 @@
 
 import { FloatingButton } from './FloatingButton'
 import { fontFaceCss } from '../src/theme'
+import { wppCall } from '../src/wpp'
 
 /** @font-face precisa estar no documento principal (não funciona dentro do Shadow DOM). */
 function injectFonts() {
@@ -22,6 +23,15 @@ function mountOnce() {
   FloatingButton.mount()
   return true
 }
+
+// Diagnóstico do WA-JS (Configurações): o segundo plano pergunta, esta página responde.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg && msg.type === 'WPP_STATUS') {
+    void wppCall('status', undefined, 3000).then(sendResponse)
+    return true
+  }
+  return false
+})
 
 function init() {
   // O #app pode já existir quando o script roda (document_idle): checa antes de observar.

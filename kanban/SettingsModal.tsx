@@ -9,6 +9,7 @@ import {
 } from '../src/ui'
 import { Icon } from '../src/icons'
 import { CRM_ACTIVITY_TYPES } from '../src/crm'
+import { explainWppError, type WppResult, type WppStatus } from '../src/wpp'
 import { useFeedback } from '../src/feedback'
 
 const sectionStyle: React.CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R.md, padding: '14px 16px', marginTop: '14px' }
@@ -27,6 +28,7 @@ export function SettingsModal({
   const [templates, setTemplates] = useState<Template[]>([])
   const [usedToday, setUsedToday] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [wpp, setWpp] = useState<{ busy: boolean; result?: WppResult<WppStatus>; failure?: string }>({ busy: false })
 
   useEffect(() => {
     void (async () => {
@@ -85,6 +87,13 @@ export function SettingsModal({
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Falha ao importar o arquivo.', 'err')
     }
+  }
+
+  async function testWpp() {
+    setWpp({ busy: true })
+    const r = await sendToBackground<WppResult<WppStatus>>({ type: 'WPP_STATUS' })
+    if (!r.ok) setWpp({ busy: false, failure: r.message })
+    else setWpp({ busy: false, result: r.data })
   }
 
   function patchTemplate(id: string, patch: Partial<Template>) {
@@ -166,6 +175,35 @@ export function SettingsModal({
           <div style={{ ...warnStyle, marginTop: '10px' }}>
             Teste primeiro: com o modo teste ligado, envie uma mensagem para um lead de teste e veja o resultado na aba CRM. Só depois desligue o modo teste.
           </div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h3 style={h3}>Diagnóstico do WhatsApp (WA-JS)</h3>
+          <p style={{ ...help, margin: '0 0 10px' }}>
+            A extensão usa a biblioteca WA-JS (versão fixada, com checksum) para descobrir o telefone da conversa e verificar se um número tem WhatsApp. Se ela não carregar, tudo continua funcionando pelo método antigo. O rastreamento do Google Analytics e os servidores de terceiros do WA-JS ficam <strong>desligados</strong>.
+          </p>
+          <button style={ghostBtn} onClick={testWpp} disabled={wpp.busy}><Icon name="bolt" size={15} /> {wpp.busy ? 'Testando…' : 'Testar agora'}</button>
+          {wpp.failure && <div style={{ ...warnStyle, marginTop: '10px' }}>{wpp.failure}</div>}
+          {wpp.result && !wpp.result.ok && <div style={{ ...warnStyle, marginTop: '10px' }}>{explainWppError(wpp.result.error)}</div>}
+          {wpp.result && wpp.result.ok && (
+            <table style={{ width: '100%', marginTop: '10px', fontSize: '12.5px', borderCollapse: 'collapse' }}>
+              <tbody>
+                {([
+                  ['WA-JS carregado', wpp.result.data.loaded ? `sim (v${wpp.result.data.version})` : 'não'],
+                  ['Pronto para uso', wpp.result.data.ready ? 'sim' : 'ainda não (espere o WhatsApp carregar)'],
+                  ['Conta conectada', wpp.result.data.authenticated === null ? '—' : wpp.result.data.authenticated ? 'sim' : 'não'],
+                  ['Versão do WhatsApp Web', wpp.result.data.waVersion ?? '—'],
+                  ['Google Analytics desligado', wpp.result.data.analyticsDisabled === null ? '—' : wpp.result.data.analyticsDisabled ? 'sim' : 'NÃO (bloqueado por segurança)'],
+                  ['Servidores de link de terceiros', wpp.result.data.linkPreviewServers === null ? '—' : wpp.result.data.linkPreviewServers === 0 ? 'nenhum (desligados)' : `${wpp.result.data.linkPreviewServers} ATIVO(S)`],
+                ] as [string, string][]).map(([k, v]) => (
+                  <tr key={k} style={{ borderTop: `1px solid ${C.line}` }}>
+                    <td style={{ padding: '6px 4px', color: C.muted, fontWeight: 600 }}>{k}</td>
+                    <td style={{ padding: '6px 4px', fontWeight: 700 }}>{v}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
 
         <section style={sectionStyle}>

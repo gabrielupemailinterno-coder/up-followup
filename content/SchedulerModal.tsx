@@ -15,6 +15,7 @@ import {
 import { Icon } from '../src/icons'
 import type { CurrentContact } from './whatsapp-bridge'
 import { usePhoneDetection } from './usePhoneDetection'
+import { WaCheck } from './WaCheck'
 
 interface Props {
   contact: CurrentContact | null
@@ -133,6 +134,7 @@ export function SchedulerModal({ contact, onClose }: Props) {
               Telefone
               <input style={inputStyle} value={phoneRaw} onChange={e => setPhoneRaw(e.target.value)} placeholder="(31) 99999-9999" />
               <PhoneHint phone={phone} detecting={detection.detecting} failed={detection.failed} canDetect={!!contact} onDetect={detection.run} />
+              <WaCheck phone={phone} />
             </label>
           </div>
 

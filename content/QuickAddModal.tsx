@@ -11,6 +11,7 @@ import { overlayStyle, modalStyle, labelStyle, inputStyle, primaryBtn, errorStyl
 import { Icon } from '../src/icons'
 import type { CurrentContact } from './whatsapp-bridge'
 import { usePhoneDetection } from './usePhoneDetection'
+import { WaCheck } from './WaCheck'
 
 export function QuickAddModal({ contact, onClose }: { contact: CurrentContact | null; onClose: () => void }) {
   const [name, setName] = useState(contact?.name ?? '')
@@ -86,6 +87,7 @@ export function QuickAddModal({ contact, onClose }: { contact: CurrentContact | 
                       {contact && <button type="button" onClick={detection.run} style={{ background: 'none', border: 'none', padding: 0, color: C.brand, fontWeight: 800, textDecoration: 'underline', fontSize: '11px' }}>Detectar do WhatsApp</button>}
                     </>}
             </span>
+            <WaCheck phone={phone} />
           </label>
           <label style={labelStyle}>
             Etapa
