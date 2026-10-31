@@ -9,7 +9,7 @@ import { sendToBackground } from '../src/types'
 import { runAgentJob, type AgentDeps, type AgentOutcome } from '../src/agent'
 import type { AgentAction, AgentElement, ElementKind, FormState, Snapshot } from '../src/gemini'
 import type { CrmPageAdapter } from '../src/crmDriver'
-import { leadRows, modalEl, realClick, setInputValue, sleep, waitFor } from './crm-adapter'
+import { leadRows, modalEl, readPhonesIn, realClick, setInputValue, sleep, waitFor } from './crm-adapter'
 
 const MODAL_ROOTS = '.ant-modal-content, .ant-drawer-content'
 const DROPDOWN = '.ant-select-dropdown:not(.ant-select-dropdown-hidden)'
@@ -91,7 +91,7 @@ export function takeSnapshot(): Snapshot {
   }
 
   const modal = modals[0] ?? null
-  const phones = modal ? [...modal.querySelectorAll<HTMLInputElement>('input[name^="telefone"]')].map(i => i.value).filter(Boolean) : []
+  const phones = modal ? readPhonesIn(modal) : []
   const nameInput = modal?.querySelector<HTMLInputElement>('input[name="nome"], input[name="name"]')
   const firstText = modal ? [...modal.querySelectorAll<HTMLInputElement>('input[type="text"]')].find(i => i.value && !i.name.startsWith('telefone')) : undefined
   const scopeText = ((modal ?? document.body) as HTMLElement).innerText ?? ''

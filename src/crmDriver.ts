@@ -12,7 +12,7 @@ import type { CrmJob } from './types'
 import { CRM_PAGE_SIZE, formatPhoneForCrm, phoneSearchQueries, samePhone } from './crm'
 
 /** Quantas linhas da busca estamos dispostos a abrir e conferir, uma a uma. */
-export const MAX_ROW_CANDIDATES = 5
+export const MAX_ROW_CANDIDATES = 15   // buscar "1707" no CRM real devolve 6 leads: a lista não traz o telefone, então abrimos cada um
 
 export interface CrmPageAdapter {
   path(): string

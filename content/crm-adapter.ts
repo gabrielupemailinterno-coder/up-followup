@@ -217,7 +217,28 @@ export function leadRows(): HTMLElement[] {
 /** O botão com o nome do lead (o ícone de ação não tem texto; o nome tem). */
 export function rowNameButton(row: HTMLElement): HTMLElement | null {
   const items = [...row.querySelectorAll<HTMLElement>('button, a')]
-  return items.find(b => (b.textContent ?? '').trim().length > 0 && !/detalhes|editar|enviar/i.test((b.textContent ?? '').trim())) ?? null
+  const btn = items.find(b => (b.textContent ?? '').trim().length > 0 && !/detalhes|editar|enviar/i.test((b.textContent ?? '').trim()))
+  if (btn) return btn
+  // linhas sem o "botão cinza" (ex.: leads antigos): o nome é só texto na primeira célula com conteúdo
+  return [...row.querySelectorAll<HTMLElement>('td')].find(td => (td.textContent ?? '').trim().length > 0 && !td.querySelector('input')) ?? null
+}
+
+/** "22.770 Leads Filtradas" do cabeçalho: muda quando o filtro da busca é aplicado. */
+export function filteredCountText(): string {
+  const m = (document.body.textContent ?? '').match(/([\d.]+)\s+Leads\s+Filtradas/i)
+  return m ? m[1] : ''
+}
+
+/** Telefones do painel do lead: campos de telefone ou os "chips" com o número (como na tela real). */
+export function readPhonesIn(root: ParentNode): string[] {
+  const out = new Set<string>()
+  for (const i of root.querySelectorAll<HTMLInputElement>('input[name^="telefone"]')) if (i.value) out.add(i.value)
+  for (const el of root.querySelectorAll<HTMLElement>('span, div, p, a')) {
+    if (el.children.length > 0) continue
+    const t = (el.textContent ?? '').trim()
+    if (/^\+?\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/.test(t)) out.add(t)
+  }
+  return [...out]
 }
 
 const tableBusy = () => !!document.querySelector('.ant-spin-spinning, .ant-table-spin-holder .ant-spin')
@@ -243,13 +264,14 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
         return 0
       }
       const before = rowSignature()
+      const beforeCount = filteredCountText()
       setInputValue(input, query)
-      // espera a lista mudar em relação à anterior (evita ler resultado velho) e o carregamento acabar
-      const changed = await waitFor(() => (rowSignature() !== before ? true : null), 7000, 250)
+      // espera a lista OU o contador "N Leads Filtradas" mudar (o CRM demora alguns segundos) e o carregamento acabar
+      const changed = await waitFor(() => (rowSignature() !== before || filteredCountText() !== beforeCount ? true : null), 15_000, 250)
       await waitFor(() => (!tableBusy() ? true : null), 5000, 250)
       await sleep(600)
       const count = leadRows().length
-      trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 7 s'} · ${count} linha(s)`)
+      trace(`busca "${query}": campo="${input.value}" · lista ${changed ? 'mudou' : 'NÃO mudou em 15 s'} · ${filteredCountText() || '?'} filtrados · ${count} linha(s)`)
       return count
     },
 
@@ -262,14 +284,13 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
       }
       realClick(btn)
       const open = await waitFor(() => modalEl(), 6000)
-      if (open) await waitFor(() => document.querySelector('input[name^="telefone"]'), 4000, 200)
+      if (open) await waitFor(() => (readPhonesIn(modalEl() ?? document).length ? true : null), 5000, 200)
       trace(`linha ${index + 1}: ${open ? 'painel do lead abriu' : 'o painel NÃO abriu depois do clique'}${open ? ` · telefones no painel: ${this.readModalPhones().map(maskPhone).join('/') || 'nenhum'}` : ''}`)
       return !!open
     },
 
     readModalPhones() {
-      const root = modalEl() ?? document
-      return [...root.querySelectorAll<HTMLInputElement>('input[name^="telefone"]')].map(i => i.value).filter(Boolean)
+      return readPhonesIn(modalEl() ?? document)
     },
 
     async openActivityForm() {
@@ -338,6 +359,7 @@ export function createCrmAdapter(trace: (text: string) => void = () => {}): CrmP
 
     async waitForNewActivity(before) {
       const ok = await waitFor(() => {
+        if (/atividade registrada com sucesso/i.test(document.querySelector('.ant-message, .ant-notification')?.textContent ?? '')) return true
         const now = this.activityCount()
         if (before !== null && now !== null && now > before) return true
         // sem contador: formulário reiniciou (editor vazio) depois do envio

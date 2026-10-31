@@ -181,7 +181,8 @@ export function buildAgentPrompt(goal: AgentGoal, snap: Snapshot, state: FormSta
     goal.dryRun
       ? 'MODO TESTE: preencha o formulário, mas NÃO envie. Quando o tipo e o comentário estiverem preenchidos, responda done.'
       : 'MODO REAL: preencha o formulário, clique no botão que envia a atividade e depois responda done.',
-    'CAMINHO TÍPICO: na tela Leads digite SOMENTE os 4 últimos dígitos do telefone na busca (nunca o número inteiro); clique no nome do lead da lista; (o sistema confere o telefone do painel); clique em "Adicionar Atividade"; abra o campo do tipo e escolha o tipo pedido; ajuste o campo "Quando" para agora/hoje se estiver vazio; clique no campo do comentário e use type; envie (só no modo real).',
+    'DICA DO CRM: buscar os 4 últimos dígitos costuma listar vários leads (a lista não mostra telefone): abra um por vez e o sistema confere o telefone do painel; se não for o certo, feche e abra o próximo.',
+    'CAMINHO TÍPICO: na tela Leads digite SOMENTE os 4 últimos dígitos do telefone na busca (nunca o número inteiro); clique no nome do lead da lista; (o sistema confere o telefone do painel); o formulário "Ações" já aparece no painel do lead (o botão "Adicionar Atividade" é o que ENVIA); abra o campo "Tipo de Atividade" e escolha o tipo pedido; ajuste o campo "Quando" para agora/hoje se estiver vazio; clique no campo do comentário e use type; envie (só no modo real).',
     '',
     `ESTADO: tela=${snap.path} · painel aberto=${snap.modalOpen ? 'sim' : 'não'} · telefone do painel conferido pelo sistema=${phoneVerified ? 'SIM' : 'não'} · formulário aberto=${state.formOpen ? 'sim' : 'não'} · tipo escolhido=${state.typeChosen ?? 'nenhum'} · comentário preenchido=${state.commentOk ? 'sim' : 'não'} · linhas na lista=${snap.rowCount}`,
   ]

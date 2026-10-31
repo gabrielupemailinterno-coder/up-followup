@@ -51,7 +51,7 @@ export async function callGemini(c: GeminiCall): Promise<GeminiResult> {
   let last: GeminiResult = { ok: false, code: 'network', message: 'Sem resposta do Gemini.' }
   for (let attempt = 0; attempt < 2; attempt++) {
     const ctl = new AbortController()
-    const timer = setTimeout(() => ctl.abort(), c.timeoutMs ?? 25_000)
+    const timer = setTimeout(() => ctl.abort(), c.timeoutMs ?? 45_000)
     try {
       const res = await doFetch(`${ENDPOINT}/${encodeURIComponent(c.model)}:generateContent`, {
         method: 'POST',
