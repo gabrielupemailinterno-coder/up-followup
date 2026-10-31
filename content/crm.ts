@@ -8,13 +8,14 @@
 
 import type { CrmJob, CrmLead } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { getCrmJobs, getSettings, mergeCrmLeads, patchCrmJob } from '../src/storage'
+import { appendCrmTrace, getCrmJobs, getSettings, mergeCrmLeads, patchCrmJob } from '../src/storage'
 import { runJobStep } from '../src/crmDriver'
-import { createCrmAdapter, leadsFromFunilPage, leadsFromLeadsPage, sleep, waitFor } from './crm-adapter'
+import { createCrmAdapter, describeCrmPage, leadsFromFunilPage, leadsFromLeadsPage, sleep, waitFor } from './crm-adapter'
 import { extensionAlive, safeInterval } from '../src/alive'
 
 const MAX_PAGE_LOADS_PER_JOB = 6
 const RUNNING_TIMEOUT_MS = 4 * 60_000
+const STEP_TIMEOUT_MS = 90_000   // nenhum passo pode passar disso: vira falha com o nome do passo
 
 // ─── Leitor ───────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,27 @@ function startReader() {
 
 // ─── Executor ─────────────────────────────────────────────────────────────────
 
+function withTimeout<T>(p: Promise<T>, ms: number, label: () => string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`tempo esgotado (${Math.round(ms / 1000)} s) em: ${label()}`)), ms)
+    p.then(v => { clearTimeout(t); resolve(v) }, e => { clearTimeout(t); reject(e) })
+  })
+}
+
+/** Aviso visível na aba de trabalho: mostra em que passo está e onde parou. */
+function banner(text: string | null) {
+  let el = document.getElementById('wm-driver-banner')
+  if (text === null) { el?.remove(); return }
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'wm-driver-banner'
+    el.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483647;max-width:440px;padding:8px 12px;border-radius:10px;' +
+      'background:#3A4A3F;color:#F7F4ED;font:600 12px/1.4 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);pointer-events:none'
+    document.body.appendChild(el)
+  }
+  el.textContent = `Follow-up UP · ${text}`
+}
+
 async function runDriver() {
   const adapter = createCrmAdapter()
   await sleep(2500) // dá tempo da página do CRM terminar de montar
@@ -78,31 +100,46 @@ async function runDriver() {
       continue
     }
     job = (await patchCrmJob(job.id, { status: 'running', attempts: job.attempts + 1 })) ?? job
-    const currentId = job.id
+    const jobId = job.id
+    let lastStep = 'iniciando'
+    const note = (text: string, asMessage: boolean) => {
+      lastStep = text
+      banner(text)
+      void appendCrmTrace(jobId, text, asMessage).catch(() => {})
+    }
+    note(`passo ${job.attempts}: ${describeCrmPage()}`, false)
 
     let result
     try {
-      result = await runJobStep(job, adapter, text => { void patchCrmJob(currentId, { message: text }).catch(() => {}) })
+      result = await withTimeout(runJobStep(job, adapter, text => note(text, true)), STEP_TIMEOUT_MS, () => lastStep)
     } catch (err) {
-      await patchCrmJob(job.id, { status: 'failed', message: `Erro inesperado: ${String(err)}` })
+      const msg = `Travou: ${err instanceof Error ? err.message : String(err)}. ${describeCrmPage()}`
+      note(msg, false)
+      await patchCrmJob(jobId, { status: 'failed', message: msg })
       continue
     }
 
     if (result.kind === 'navigating') {
       // 1) grava o que descobrimos (ex.: o id do lead) ANTES de sair da página: senão ele se perde no recarregamento
-      if (result.patch) await patchCrmJob(job.id, result.patch)
+      if (result.patch) await patchCrmJob(jobId, result.patch)
+      note(`indo para ${result.to}${result.patch?.leadId ? ' (lead encontrado)' : ''}`, true)
       // 2) navega e espera a tela mudar; com navegação interna o script continua vivo e segue no laço
       adapter.goto(result.to)
       const arrived = await waitFor(() => location.pathname.replace(/\/+$/, '') === result.to, 10_000, 200)
       if (!arrived) {
-        await patchCrmJob(job.id, { status: 'failed', message: `Não consegui abrir a tela ${result.to} do CRM.` })
+        const msg = `Não consegui abrir a tela ${result.to} do CRM (ficou em ${location.pathname}). ${describeCrmPage()}`
+        note(msg, false)
+        await patchCrmJob(jobId, { status: 'failed', message: msg })
         continue
       }
+      note(`chegou em ${location.pathname}`, false)
       await sleep(2000) // deixa a tela nova montar
       continue
     }
 
-    await patchCrmJob(job.id, { status: result.status, message: result.message, ...result.patch })
+    note(`resultado: ${result.status}. ${result.message}${result.status === 'failed' ? ` · ${describeCrmPage()}` : ''}`, false)
+    await patchCrmJob(jobId, { status: result.status, message: result.message, ...result.patch })
+    if (result.status !== 'failed') setTimeout(() => banner(null), 8000) // em falha o aviso fica para você ver
     await sleep(4000 + Math.random() * 5000) // pausa humana entre atividades
   }
 }

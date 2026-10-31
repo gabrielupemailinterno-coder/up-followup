@@ -455,6 +455,24 @@ const CRM_STATUS: Record<CrmJob['status'], { label: string; fg: string; bg: stri
   skipped: { label: 'Não registrada', fg: C.muted, bg: '#ECEAE0' },
 }
 
+/** Relatório para enviar ao suporte: sem nomes e só com os 4 últimos dígitos dos telefones. */
+function buildCrmReport(jobs: CrmJob[], diag: CrmDiag | null, cfg: { enabled: boolean; dryRun: boolean }): string {
+  const t0 = (j: CrmJob) => j.trace?.[0]?.t ?? j.createdAt
+  const lines: string[] = [
+    `Follow-up UP v${chrome.runtime.getManifest().version} · diagnóstico do CRM · ${new Date().toLocaleString('pt-BR')}`,
+    `CRM ligado: ${cfg.enabled ? 'sim' : 'não'} · modo teste: ${cfg.dryRun ? 'sim' : 'não'}`,
+    diag ? `Último envio: ${diag.result} — ${diag.detail ?? ''}` : 'Último envio: nenhum visto',
+    '',
+  ]
+  for (const j of jobs.slice(0, 3)) {
+    lines.push(`# registro ...${j.phone.slice(-4)} · ${j.activityType} · ${j.status} · tentativas ${j.attempts}${j.leadId ? ' · lead achado' : ' · lead NÃO achado'}`)
+    if (j.message) lines.push(`  mensagem: ${j.message}`)
+    for (const e of j.trace ?? []) lines.push(`  +${String(Math.round((e.t - t0(j)) / 1000)).padStart(3)}s ${e.text}`)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
 function CrmTab({
   jobs, leads, cfg, diag, now, act,
 }: {
@@ -466,6 +484,7 @@ function CrmTab({
   act: (p: Promise<{ ok: boolean; message?: string }>) => void
 }) {
   const stale = findStaleLeads(leads, now, 2).slice(0, 8)
+  const [copied, setCopied] = useState(false)
   const withPhone = new Map(leads.flatMap(l => l.phones.map(p => [l.id, p] as const)))
 
   return (
@@ -490,6 +509,12 @@ function CrmTab({
           : <span style={{ color: C.muted }}>nenhum envio visto ainda por esta versão da extensão.</span>}
       </div>
 
+      <div style={{ marginBottom: '8px' }}>
+        <MiniBtn icon="list" onClick={async () => {
+          try { await navigator.clipboard.writeText(buildCrmReport(jobs, diag, cfg)); setCopied(true); setTimeout(() => setCopied(false), 2500) } catch { /* sem permissão */ }
+        }}>{copied ? 'Copiado! Cole na conversa' : 'Copiar diagnóstico do CRM'}</MiniBtn>
+      </div>
+
       <GroupLabel>Atividades no CRM</GroupLabel>
       {jobs.length === 0 && <Empty icon="list" title="Nada na fila do CRM" text="Depois de cada envio, a atividade aparece aqui com o resultado." />}
       {jobs.map(j => {
@@ -504,6 +529,11 @@ function CrmTab({
               {formatPhone(j.phone)} · {j.activityType} · {new Date(j.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
             </div>
             {j.message && <div style={{ fontSize: '12px', color: j.status === 'failed' ? C.danger : C.inkSoft, lineHeight: 1.4, marginBottom: '6px' }}>{j.message}</div>}
+            {(j.status === 'running' || j.status === 'failed') && j.trace && j.trace.length > 0 && (
+              <div style={{ fontSize: '10.5px', color: C.muted, fontFamily: 'ui-monospace, Menlo, monospace', lineHeight: 1.4, marginBottom: '6px', maxHeight: '64px', overflow: 'hidden' }}>
+                {j.trace.slice(-3).map((e, i) => <div key={i}>• {e.text.slice(0, 120)}</div>)}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '6px' }}>
               {(j.status === 'failed' || j.status === 'tested' || j.status === 'skipped') && (
                 <MiniBtn primary icon="repeat" onClick={() => act(sendToBackground({ type: 'CRM_RETRY', payload: { id: j.id } }))}>{j.status === 'tested' ? (cfg.dryRun ? 'Repetir teste' : 'Registrar de verdade') : 'Tentar de novo'}</MiniBtn>

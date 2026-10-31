@@ -187,6 +187,21 @@ async function chooseOption(select: HTMLElement, match: (text: string) => boolea
   return 'ok'
 }
 
+/** Fatos da tela atual do CRM, para o rastro de diagnóstico (sem dados pessoais). */
+export function describeCrmPage(): string {
+  const count = (sel: string) => document.querySelectorAll(sel).length
+  return [
+    `tela=${location.pathname}`,
+    `botões Detalhes=${detailsButtons().length}`,
+    `busca de Leads=${count(SEL.leadsSearch) > 0 ? 'sim' : 'não'}`,
+    `busca do Funil=${count(SEL.funilSearch) > 0 ? 'sim' : 'não'}`,
+    `painéis abertos=${count(SEL.modal)}`,
+    `formulário de atividade=${document.querySelector(SEL.typeInput) ? 'sim' : 'não'}`,
+    `link /funil no menu=${document.querySelector('a[href="/funil"]') ? 'sim' : 'não'}`,
+    `link /leads no menu=${document.querySelector('a[href="/leads"]') ? 'sim' : 'não'}`,
+  ].join(' · ')
+}
+
 export function createCrmAdapter(): CrmPageAdapter {
   return {
     path: () => location.pathname.replace(/\/+$/, '') || '/',

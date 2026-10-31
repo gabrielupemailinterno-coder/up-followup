@@ -343,22 +343,49 @@ export async function saveAllCrmJobs(list: CrmJob[]): Promise<void> {
   await set(KEYS.CRM_JOBS, list.slice(-500))
 }
 
-export async function saveCrmJob(job: CrmJob): Promise<void> {
-  const all = await getCrmJobs()
-  const idx = all.findIndex(j => j.id === job.id)
-  const next = { ...job, updatedAt: Date.now() }
-  if (idx >= 0) all[idx] = next
-  else all.push(next)
-  await saveAllCrmJobs(all)
+/**
+ * Leitura-modificação-gravação dos jobs do CRM em fila: duas atualizações quase simultâneas
+ * (ex.: o texto do passo e o id do lead) não podem se sobrescrever e perder dados.
+ */
+let crmJobsQueue: Promise<unknown> = Promise.resolve()
+function serialCrmJobs<T>(fn: () => Promise<T>): Promise<T> {
+  const run = crmJobsQueue.then(fn, fn)
+  crmJobsQueue = run.catch(() => undefined)
+  return run
 }
 
-export async function patchCrmJob(id: string, patch: Partial<CrmJob>): Promise<CrmJob | undefined> {
-  const all = await getCrmJobs()
-  const idx = all.findIndex(j => j.id === id)
-  if (idx < 0) return undefined
-  all[idx] = { ...all[idx], ...patch, updatedAt: Date.now() }
-  await saveAllCrmJobs(all)
-  return all[idx]
+export function saveCrmJob(job: CrmJob): Promise<void> {
+  return serialCrmJobs(async () => {
+    const all = await getCrmJobs()
+    const idx = all.findIndex(j => j.id === job.id)
+    const next = { ...job, updatedAt: Date.now() }
+    if (idx >= 0) all[idx] = next
+    else all.push(next)
+    await saveAllCrmJobs(all)
+  })
+}
+
+export function patchCrmJob(id: string, patch: Partial<CrmJob>): Promise<CrmJob | undefined> {
+  return serialCrmJobs(async () => {
+    const all = await getCrmJobs()
+    const idx = all.findIndex(j => j.id === id)
+    if (idx < 0) return undefined
+    all[idx] = { ...all[idx], ...patch, updatedAt: Date.now() }
+    await saveAllCrmJobs(all)
+    return all[idx]
+  })
+}
+
+/** Acrescenta uma linha ao rastro do job (últimas 60) e, opcionalmente, atualiza a mensagem exibida. */
+export function appendCrmTrace(id: string, text: string, alsoMessage = false): Promise<void> {
+  return serialCrmJobs(async () => {
+    const all = await getCrmJobs()
+    const idx = all.findIndex(j => j.id === id)
+    if (idx < 0) return
+    const trace = [...(all[idx].trace ?? []), { t: Date.now(), text }].slice(-60)
+    all[idx] = { ...all[idx], trace, ...(alsoMessage ? { message: text } : {}), updatedAt: Date.now() }
+    await saveAllCrmJobs(all)
+  })
 }
 
 export async function getCrmDriverTab(): Promise<number | null> {

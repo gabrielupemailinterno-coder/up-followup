@@ -163,6 +163,11 @@ export interface CrmLead {
 
 export type CrmJobStatus = 'pending' | 'running' | 'done' | 'tested' | 'failed' | 'skipped'
 
+export interface CrmTraceEntry {
+  t: number
+  text: string
+}
+
 export interface CrmJob {
   id: string
   phone: string
@@ -176,6 +181,7 @@ export interface CrmJob {
   dryRun: boolean
   message?: string
   attempts: number
+  trace?: CrmTraceEntry[]       // rastro dos passos (para diagnóstico)
   source: 'schedule' | 'campaign' | 'manual'
   createdAt: number
   updatedAt: number
