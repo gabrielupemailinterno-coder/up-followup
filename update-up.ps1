@@ -1,6 +1,5 @@
 # Atualizador do Follow-up UP
-# Salve este arquivo em qualquer pasta e clique duas vezes para atualizar a extensão.
-# Requer: Windows 10+, PowerShell 5+, internet.
+# Clique com botão direito neste arquivo → Executar com o PowerShell
 
 $ErrorActionPreference = "Stop"
 $REPO     = "gabrielupemailinterno-coder/up-followup"
@@ -24,46 +23,46 @@ if (Test-Path $manifestPath) {
     try {
         $manifest       = Get-Content $manifestPath -Raw | ConvertFrom-Json
         $currentVersion = $manifest.version
-        Write-Step "Versão atual instalada: v$currentVersion"
+        Write-Step "Versao atual instalada: v$currentVersion"
     } catch {
-        Write-Warn "Não consegui ler a versão atual."
+        Write-Warn "Nao consegui ler a versao atual."
     }
 } else {
-    Write-Warn "Pasta $DEST não encontrada — fazendo instalação inicial."
+    Write-Warn "Pasta $DEST nao encontrada — fazendo instalacao inicial."
 }
 
 # --- Buscar versão mais recente ---
-Write-Step "Verificando versão mais recente…"
+Write-Step "Verificando versao mais recente..."
 try {
     $release     = Invoke-RestMethod -Uri $API_URL -UseBasicParsing
-    $latestTag   = $release.tag_name          # ex.: "v1.9.2"
-    $latestVer   = $latestTag.TrimStart("v")  # ex.: "1.9.2"
+    $latestTag   = $release.tag_name
+    $latestVer   = $latestTag.TrimStart("v")
     $asset       = $release.assets | Where-Object { $_.name -eq "up-followup.zip" } | Select-Object -First 1
     $downloadUrl = $asset.browser_download_url
 } catch {
-    Write-Err "Não consegui acessar o GitHub. Verifique sua conexão."
+    Write-Err "Nao consegui acessar o GitHub. Verifique sua conexao."
     Read-Host "Pressione Enter para fechar"
     exit 1
 }
 
 if (-not $downloadUrl) {
-    Write-Err "Arquivo up-followup.zip não encontrado na release $latestTag."
+    Write-Err "Arquivo up-followup.zip nao encontrado na release $latestTag."
     Read-Host "Pressione Enter para fechar"
     exit 1
 }
 
 if ($currentVersion -eq $latestVer) {
     Write-Host ""
-    Write-Host "  Você já está na versão mais recente (v$latestVer)." -ForegroundColor Green
+    Write-Host "  Voce ja esta na versao mais recente (v$latestVer)." -ForegroundColor Green
     Write-Host ""
     Read-Host "Pressione Enter para fechar"
     exit 0
 }
 
-Write-Step "Nova versão disponível: v$latestVer"
+Write-Step "Nova versao disponivel: v$latestVer"
 
 # --- Baixar ---
-Write-Step "Baixando…"
+Write-Step "Baixando..."
 try {
     Invoke-WebRequest -Uri $downloadUrl -OutFile $ZIP_TMP -UseBasicParsing
 } catch {
@@ -73,7 +72,7 @@ try {
 }
 
 # --- Extrair ---
-Write-Step "Instalando em $DEST…"
+Write-Step "Instalando em $DEST..."
 if (-not (Test-Path $DEST)) { New-Item -ItemType Directory -Path $DEST | Out-Null }
 
 try {
@@ -90,17 +89,14 @@ Remove-Item $ZIP_TMP -ErrorAction SilentlyContinue
 Write-Host ""
 Write-Host "  Atualizado: v$currentVersion -> v$latestVer" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Falta só recarregar:" -ForegroundColor White
+Write-Host "  Falta so recarregar:" -ForegroundColor White
 Write-Host "  1. Abra chrome://extensions no Chrome" -ForegroundColor White
 Write-Host "  2. Encontre 'Follow-up UP' e clique na seta de recarregar (↺)" -ForegroundColor White
 Write-Host "  3. Recarregue o WhatsApp Web com F5" -ForegroundColor White
 Write-Host "  Seus dados sao mantidos." -ForegroundColor DarkGray
 Write-Host ""
 
-# Abre chrome://extensions automaticamente
-try {
-    Start-Process "chrome" "chrome://extensions"
-} catch {
+try { Start-Process "chrome" "chrome://extensions" } catch {
     try { Start-Process "msedge" "edge://extensions" } catch {}
 }
 
