@@ -19,7 +19,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { KanbanCard, KanbanColumn } from '../src/types'
+import type { KanbanCard, KanbanColumn, KanbanBoard } from '../src/types'
 import { sendToBackground } from '../src/types'
 import {
   ensureSchema,
@@ -29,6 +29,13 @@ import {
   saveKanbanColumns,
   applyColumnChange,
   DEFAULT_COLUMNS,
+  getBoards,
+  saveBoards,
+  getActiveBoardId,
+  setActiveBoardId,
+  deleteBoard,
+  DEFAULT_BOARD,
+  DEFAULT_BOARD_ID,
 } from '../src/storage'
 import { formatPhone, normalizePhone } from '../src/phone'
 import { C, FONT, R, SHADOW } from '../src/theme'
@@ -58,6 +65,8 @@ function initialView(): View {
 
 export default function KanbanApp() {
   const { toast, confirm } = useFeedback()
+  const [boards, setBoards] = useState<KanbanBoard[]>([DEFAULT_BOARD])
+  const [activeBoardId, setActiveBoardIdState] = useState<string>(DEFAULT_BOARD_ID)
   const [columns, setColumns] = useState<KanbanColumn[]>([])
   const [cards, setCards] = useState<KanbanCard[]>([])
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null)
@@ -68,6 +77,7 @@ export default function KanbanApp() {
   const [newCardColumn, setNewCardColumn] = useState<string | null>(null)
   const [editingColumn, setEditingColumn] = useState<KanbanColumn | 'new' | null>(null)
   const [showSettings, setShowSettings] = useState(window.location.hash === '#config')
+  const [showBoardEditor, setShowBoardEditor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>(initialView())
 
@@ -76,15 +86,60 @@ export default function KanbanApp() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (boardId?: string) => {
     await ensureSchema()
-    const [cols, cds] = await Promise.all([getKanbanColumns(), getKanbanCards()])
+    const [bds, savedBoardId, cols, cds] = await Promise.all([
+      getBoards(),
+      getActiveBoardId(),
+      getKanbanColumns(boardId),
+      getKanbanCards(boardId),
+    ])
+    const bid = boardId ?? savedBoardId
+    setBoards(bds)
+    setActiveBoardIdState(bid)
     setColumns([...cols].sort((a, b) => a.order - b.order))
     setCards([...cds].sort((a, b) => a.order - b.order))
     setLoading(false)
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  async function switchBoard(boardId: string) {
+    setLoading(true)
+    setSearch(''); setTagFilter(''); setColumnFilter('')
+    await setActiveBoardId(boardId)
+    await load(boardId)
+  }
+
+  async function createBoard(name: string) {
+    const id = `board_${Date.now()}`
+    const board: KanbanBoard = { id, name, createdAt: Date.now() }
+    const next = [...boards, board]
+    await saveBoards(next)
+    setBoards(next)
+    await switchBoard(id)
+    toast(`Quadro "${name}" criado.`, 'ok')
+  }
+
+  async function renameBoard(boardId: string, name: string) {
+    const next = boards.map(b => b.id === boardId ? { ...b, name } : b)
+    await saveBoards(next)
+    setBoards(next)
+  }
+
+  async function removeBoardConfirm(boardId: string) {
+    if (boardId === DEFAULT_BOARD_ID) { toast('O quadro principal não pode ser excluído.', 'err'); return }
+    const board = boards.find(b => b.id === boardId)
+    const ok = await confirm({ title: 'Excluir quadro', message: `Excluir o quadro "${board?.name ?? boardId}" e todos os seus leads? Essa ação não pode ser desfeita.`, confirmLabel: 'Excluir', danger: true })
+    if (!ok) return
+    await deleteBoard(boardId)
+    const next = boards.filter(b => b.id !== boardId)
+    await saveBoards(next)
+    setBoards(next)
+    const nextId = next[0]?.id ?? DEFAULT_BOARD_ID
+    await switchBoard(nextId)
+    toast('Quadro excluído.')
+  }
 
   const allTags = useMemo(() => [...new Set(cards.flatMap(c => c.tags))].sort(), [cards])
 
@@ -120,7 +175,7 @@ export default function KanbanApp() {
     }
     updated = updated.map((c, i) => ({ ...c, order: i }))
     setCards(updated)
-    await saveAllKanbanCards(updated)
+    await saveAllKanbanCards(updated, activeBoardId)
 
     // Card ligado ao CRM mudou de coluna: oferece mover também a etapa no CRM.
     const moved = updated.find(c => c.id === dragged.id)
@@ -132,7 +187,7 @@ export default function KanbanApp() {
         else {
           const next = updated.map(c => (c.id === moved.id ? r.card : c))
           setCards(next)
-          await saveAllKanbanCards(next)
+          await saveAllKanbanCards(next, activeBoardId)
           toast('Na fila do CRM: a etapa será alterada em instantes.')
         }
       }
@@ -164,8 +219,8 @@ export default function KanbanApp() {
       const merged = mergeImportedLeads(leads, columns, cards, newId, now)
 
       await Promise.all([
-        saveKanbanColumns(merged.columns),
-        saveAllKanbanCards(merged.cards),
+        saveKanbanColumns(merged.columns, activeBoardId),
+        saveAllKanbanCards(merged.cards, activeBoardId),
       ])
       setColumns(merged.columns)
       setCards(merged.cards)
@@ -181,7 +236,7 @@ export default function KanbanApp() {
   async function persistColumns(next: KanbanColumn[]) {
     const ordered = next.map((c, i) => ({ ...c, order: i }))
     setColumns(ordered)
-    await saveKanbanColumns(ordered)
+    await saveKanbanColumns(ordered, activeBoardId)
   }
 
   async function saveColumn(edit: ColumnEdit) {
@@ -219,7 +274,7 @@ export default function KanbanApp() {
       }
       const nextCards = cards.map(c => (c.columnId === col.id ? applyColumnChange(c, moveCardsTo) : c))
       setCards(nextCards)
-      await saveAllKanbanCards(nextCards)
+      await saveAllKanbanCards(nextCards, activeBoardId)
     }
     await persistColumns(columns.filter(c => c.id !== col.id))
     setEditingColumn(null)
@@ -236,7 +291,7 @@ export default function KanbanApp() {
     const ids = new Set(DEFAULT_COLUMNS.map(c => c.id))
     const next = cards.map(c => (ids.has(c.columnId) ? c : applyColumnChange(c, DEFAULT_COLUMNS[0].id)))
     setCards(next)
-    await saveAllKanbanCards(next)
+    await saveAllKanbanCards(next, activeBoardId)
     await persistColumns(DEFAULT_COLUMNS.map(c => ({ ...c, createdAt: Date.now() })))
     toast('Colunas restauradas.')
   }
@@ -246,7 +301,7 @@ export default function KanbanApp() {
     const exists = cards.some(c => c.id === card.id)
     const next = exists ? cards.map(c => (c.id === card.id ? card : c)) : [...cards, card]
     setCards(next)
-    await saveAllKanbanCards(next)
+    await saveAllKanbanCards(next, activeBoardId)
     setEditingCard(null)
     setNewCardColumn(null)
     toast(exists ? 'Contato atualizado.' : 'Contato adicionado.')
@@ -255,7 +310,7 @@ export default function KanbanApp() {
   async function handleDeleteCard(id: string) {
     const next = cards.filter(c => c.id !== id)
     setCards(next)
-    await saveAllKanbanCards(next)
+    await saveAllKanbanCards(next, activeBoardId)
     setEditingCard(null)
     toast('Contato excluído.')
   }
@@ -291,6 +346,27 @@ export default function KanbanApp() {
       {/* Barra superior */}
       <header style={{ background: `linear-gradient(120deg, ${C.inkSoft} 0%, ${C.brand} 60%, #56654F 100%)`, padding: '12px 22px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', color: C.onBrand }}>
         <img src={logo('logo-up-offwhite.png')} alt="UP" style={{ height: '24px' }} />
+        <span style={{ width: '1px', height: '24px', background: 'rgba(247,244,237,0.3)' }} />
+
+        {/* Seletor de quadros */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '260px', overflow: 'hidden' }}>
+          <select
+            aria-label="Quadro ativo"
+            value={activeBoardId}
+            onChange={e => void switchBoard(e.target.value)}
+            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: C.onBrand, borderRadius: R.sm, padding: '5px 8px', fontSize: '13px', fontWeight: 700, maxWidth: '180px', cursor: 'pointer' }}
+          >
+            {boards.map(b => (
+              <option key={b.id} value={b.id} style={{ background: C.ink, color: C.onBrand }}>
+                {b.isCrm ? '🏢 ' : '📋 '}{b.name}
+              </option>
+            ))}
+          </select>
+          <button onClick={() => setShowBoardEditor(true)} title="Gerenciar quadros" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', padding: '4px' }}>
+            <Icon name="sliders" size={14} />
+          </button>
+        </div>
+
         <span style={{ width: '1px', height: '24px', background: 'rgba(247,244,237,0.3)' }} />
         <nav aria-label="Seções" style={{ display: 'flex', gap: '4px' }}>
           <Tab active={view === 'board'} icon="kanban" onClick={() => setView('board')}>Kanban</Tab>
@@ -398,6 +474,18 @@ export default function KanbanApp() {
           onClose={() => { setShowSettings(false); window.location.hash = '' }}
           onDataChanged={load}
           onResetColumns={resetColumns}
+        />
+      )}
+
+      {showBoardEditor && (
+        <BoardEditorModal
+          boards={boards}
+          activeBoardId={activeBoardId}
+          onCreate={createBoard}
+          onRename={renameBoard}
+          onDelete={removeBoardConfirm}
+          onSwitch={switchBoard}
+          onClose={() => setShowBoardEditor(false)}
         />
       )}
     </div>
@@ -579,6 +667,131 @@ function tagColor(tag: string) {
 }
 
 // ─── Card Editor ──────────────────────────────────────────────────────────────
+
+// ─── Board Editor ─────────────────────────────────────────────────────────────
+
+function BoardEditorModal({
+  boards, activeBoardId, onCreate, onRename, onDelete, onSwitch, onClose,
+}: {
+  boards: KanbanBoard[]
+  activeBoardId: string
+  onCreate: (name: string) => Promise<void>
+  onRename: (boardId: string, name: string) => Promise<void>
+  onDelete: (boardId: string) => Promise<void>
+  onSwitch: (boardId: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [newName, setNewName] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function handleCreate() {
+    const name = newName.trim()
+    if (!name) return
+    setBusy(true)
+    await onCreate(name)
+    setNewName('')
+    setBusy(false)
+    onClose()
+  }
+
+  async function handleRename(boardId: string) {
+    const name = editName.trim()
+    if (!name) return
+    setBusy(true)
+    await onRename(boardId, name)
+    setEditingId(null)
+    setBusy(false)
+  }
+
+  async function handleSwitch(boardId: string) {
+    if (boardId === activeBoardId) { onClose(); return }
+    await onSwitch(boardId)
+    onClose()
+  }
+
+  return (
+    <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Gerenciar quadros" style={modalStyle(440)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: C.brand }}>Gerenciar quadros</h2>
+          <button onClick={onClose} aria-label="Fechar" style={{ background: 'none', border: 'none', color: C.muted, display: 'flex' }}><Icon name="x" size={20} /></button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+          {boards.map(b => (
+            <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: R.md, border: `1.5px solid ${b.id === activeBoardId ? C.brand : C.line}`, background: b.id === activeBoardId ? C.accentSoft : C.surface }}>
+              <span style={{ fontSize: '16px', flexShrink: 0 }}>{b.isCrm ? '🏢' : '📋'}</span>
+
+              {editingId === b.id ? (
+                <>
+                  <input
+                    autoFocus
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') void handleRename(b.id); if (e.key === 'Escape') setEditingId(null) }}
+                    style={{ ...inputStyle, flex: 1, padding: '5px 8px', fontSize: '13px' }}
+                  />
+                  <button onClick={() => void handleRename(b.id)} disabled={busy} style={{ ...primaryBtn(), padding: '5px 12px', fontSize: '12px' }}>Salvar</button>
+                  <button onClick={() => setEditingId(null)} style={{ ...ghostBtn, padding: '5px 10px', fontSize: '12px' }}>Cancelar</button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => void handleSwitch(b.id)}
+                    style={{ flex: 1, background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', padding: 0 }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: b.id === activeBoardId ? C.brand : C.ink }}>{b.name}</span>
+                    {b.isCrm && <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, background: C.brand, color: C.onBrand, borderRadius: R.pill, padding: '1px 7px' }}>CRM</span>}
+                    {b.id === activeBoardId && <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, color: C.brand }}>• ativo</span>}
+                  </button>
+                  {!b.isCrm && (
+                    <button
+                      onClick={() => { setEditingId(b.id); setEditName(b.name) }}
+                      title="Renomear"
+                      style={{ width: '30px', height: '30px', borderRadius: R.sm, border: `1px solid ${C.line}`, background: 'transparent', color: C.inkSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Icon name="pencil" size={14} />
+                    </button>
+                  )}
+                  {b.id !== DEFAULT_BOARD_ID && !b.isCrm && (
+                    <button
+                      onClick={() => void onDelete(b.id)}
+                      title="Excluir quadro"
+                      style={{ width: '30px', height: '30px', borderRadius: R.sm, border: `1px solid ${C.dangerSoft}`, background: C.dangerSoft, color: C.danger, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: '16px' }}>
+          <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 700, color: C.ink }}>Criar novo quadro de prospecção</p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && void handleCreate()}
+              placeholder="Nome do quadro (ex.: Lançamento Lisboa)"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <button onClick={() => void handleCreate()} disabled={busy || !newName.trim()} style={primaryBtn()}>
+              <Icon name="plus" size={15} /> Criar
+            </button>
+          </div>
+          <p style={{ margin: '8px 0 0', fontSize: '11px', color: C.muted, lineHeight: 1.5 }}>
+            Quadros livres são independentes do CRM — úteis para prospecção de lançamentos, eventos ou campanhas específicas.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function CardEditorModal({
   card, columnId, columns, cards, onSave, onDelete, onClose,

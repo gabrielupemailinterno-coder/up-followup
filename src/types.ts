@@ -27,6 +27,14 @@ export interface ColumnChange {
   at: number
 }
 
+export interface KanbanBoard {
+  id: string
+  name: string
+  /** true = quadro vinculado ao CRM (sync e import xlsx vão para cá por padrão) */
+  isCrm?: boolean
+  createdAt: number
+}
+
 export interface KanbanCard {
   id: string
   contactName: string

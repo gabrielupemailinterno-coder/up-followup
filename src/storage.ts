@@ -1,5 +1,5 @@
 import type {
-  ScheduledMessage, KanbanCard, KanbanColumn, AppSettings, Template, SendLog, ActiveSend,
+  ScheduledMessage, KanbanCard, KanbanColumn, KanbanBoard, AppSettings, Template, SendLog, ActiveSend,
   Campaign, Task, SendEvent, SendSource, CrmLead, CrmJob, CrmDiag,
 } from './types'
 import { SCHEMA_VERSION } from './types'
@@ -60,6 +60,8 @@ const KEYS = {
   CLAUDE_KEY: 'wm_claude_key',
   GEMINI_USAGE: 'wm_gemini_usage',
   CRM_STAGES: 'wm_crm_stages',
+  BOARDS: 'wm_boards',
+  ACTIVE_BOARD: 'wm_active_board',
 }
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
@@ -154,37 +156,80 @@ export async function patchScheduledMessage(
   return all[idx]
 }
 
-// ─── Kanban Cards ──────────────────────────────────────────────────────────────
+// ─── Boards ────────────────────────────────────────────────────────────────────
 
-export async function getKanbanCards(): Promise<KanbanCard[]> {
-  return get<KanbanCard[]>(KEYS.KANBAN_CARDS, [])
+/** Quadro padrão (retrocompatível com dados existentes). */
+export const DEFAULT_BOARD_ID = 'default'
+
+export const DEFAULT_BOARD: KanbanBoard = {
+  id: DEFAULT_BOARD_ID,
+  name: 'Meu funil',
+  isCrm: true,
+  createdAt: 0,
 }
 
-export async function saveKanbanCard(card: KanbanCard): Promise<void> {
-  const all = await getKanbanCards()
+/** Chave de storage para cards/colunas de um quadro específico. */
+function cardsKey(boardId: string): string {
+  return boardId === DEFAULT_BOARD_ID ? KEYS.KANBAN_CARDS : `wm_cards_${boardId}`
+}
+function colsKey(boardId: string): string {
+  return boardId === DEFAULT_BOARD_ID ? KEYS.KANBAN_COLUMNS : `wm_cols_${boardId}`
+}
+
+export async function getBoards(): Promise<KanbanBoard[]> {
+  return get<KanbanBoard[]>(KEYS.BOARDS, [DEFAULT_BOARD])
+}
+
+export async function saveBoards(boards: KanbanBoard[]): Promise<void> {
+  await set(KEYS.BOARDS, boards)
+}
+
+export async function getActiveBoardId(): Promise<string> {
+  return get<string>(KEYS.ACTIVE_BOARD, DEFAULT_BOARD_ID)
+}
+
+export async function setActiveBoardId(id: string): Promise<void> {
+  await set(KEYS.ACTIVE_BOARD, id)
+}
+
+export async function deleteBoard(boardId: string): Promise<void> {
+  if (boardId === DEFAULT_BOARD_ID) return
+  const boards = (await getBoards()).filter(b => b.id !== boardId)
+  await chrome.storage.local.remove([cardsKey(boardId), colsKey(boardId)])
+  await saveBoards(boards)
+}
+
+// ─── Kanban Cards ──────────────────────────────────────────────────────────────
+
+export async function getKanbanCards(boardId = DEFAULT_BOARD_ID): Promise<KanbanCard[]> {
+  return get<KanbanCard[]>(cardsKey(boardId), [])
+}
+
+export async function saveKanbanCard(card: KanbanCard, boardId = DEFAULT_BOARD_ID): Promise<void> {
+  const all = await getKanbanCards(boardId)
   const idx = all.findIndex(c => c.id === card.id)
   if (idx >= 0) all[idx] = card
   else all.push(card)
-  await set(KEYS.KANBAN_CARDS, all)
+  await set(cardsKey(boardId), all)
 }
 
-export async function deleteKanbanCard(id: string): Promise<void> {
-  const all = await getKanbanCards()
-  await set(KEYS.KANBAN_CARDS, all.filter(c => c.id !== id))
+export async function deleteKanbanCard(id: string, boardId = DEFAULT_BOARD_ID): Promise<void> {
+  const all = await getKanbanCards(boardId)
+  await set(cardsKey(boardId), all.filter(c => c.id !== id))
 }
 
-export async function saveAllKanbanCards(cards: KanbanCard[]): Promise<void> {
-  await set(KEYS.KANBAN_CARDS, cards)
+export async function saveAllKanbanCards(cards: KanbanCard[], boardId = DEFAULT_BOARD_ID): Promise<void> {
+  await set(cardsKey(boardId), cards)
 }
 
 // ─── Kanban Columns ────────────────────────────────────────────────────────────
 
-export async function getKanbanColumns(): Promise<KanbanColumn[]> {
-  return get<KanbanColumn[]>(KEYS.KANBAN_COLUMNS, DEFAULT_COLUMNS)
+export async function getKanbanColumns(boardId = DEFAULT_BOARD_ID): Promise<KanbanColumn[]> {
+  return get<KanbanColumn[]>(colsKey(boardId), DEFAULT_COLUMNS)
 }
 
-export async function saveKanbanColumns(columns: KanbanColumn[]): Promise<void> {
-  await set(KEYS.KANBAN_COLUMNS, columns)
+export async function saveKanbanColumns(columns: KanbanColumn[], boardId = DEFAULT_BOARD_ID): Promise<void> {
+  await set(colsKey(boardId), columns)
 }
 
 // ─── Templates ─────────────────────────────────────────────────────────────────
