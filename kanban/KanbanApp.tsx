@@ -42,6 +42,7 @@ import { SettingsModal } from './SettingsModal'
 import { ColumnEditor, type ColumnEdit } from './ColumnEditor'
 import { CampaignsPanel } from './CampaignsPanel'
 import { MetricsPanel } from './MetricsPanel'
+import { parseXlsx, mergeImportedLeads } from '../src/xlsxImport'
 
 type View = 'board' | 'campaigns' | 'metrics'
 
@@ -141,6 +142,39 @@ export default function KanbanApp() {
   async function syncCrm() {
     const r = await sendToBackground({ type: 'CRM_SYNC' })
     toast(r.ok ? 'Sincronizando com o CRM: uma janela do CRM abre e lê a tela Leads. O resultado aparece na aba CRM do ícone UP.' : r.message, r.ok ? 'ok' : 'err')
+  }
+
+  const xlsxInputRef = React.useRef<HTMLInputElement>(null)
+
+  async function handleXlsxUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!e.target) return
+    e.target.value = ''   // permite re-selecionar o mesmo arquivo
+    if (!file) return
+    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+      toast('Selecione um arquivo .xlsx exportado do CRM.', 'err'); return
+    }
+    try {
+      const buf = await file.arrayBuffer()
+      const { leads, skipped, total } = parseXlsx(buf)
+      if (leads.length === 0) { toast('Nenhum lead encontrado na planilha.', 'err'); return }
+
+      const now = Date.now()
+      const newId = () => `imp_${now}_${Math.random().toString(36).slice(2, 8)}`
+      const merged = mergeImportedLeads(leads, columns, cards, newId, now)
+
+      await Promise.all([
+        saveKanbanColumns(merged.columns),
+        saveAllKanbanCards(merged.cards),
+      ])
+      setColumns(merged.columns)
+      setCards(merged.cards)
+
+      const msg = `Importados: ${merged.created} novos · ${merged.updated} atualizados · ${skipped} ignorados (de ${total} linhas).`
+      toast(msg, 'ok')
+    } catch (err) {
+      toast(`Erro ao ler a planilha: ${err instanceof Error ? err.message : String(err)}`, 'err')
+    }
   }
 
   // ─── Colunas ─────────────────────────────────────────────────────────────────
@@ -291,6 +325,8 @@ export default function KanbanApp() {
           </>
         )}
         <button onClick={() => void syncCrm()} style={topBtn} title="Traz os seus leads do CRM para o Kanban, nas colunas das etapas"><Icon name="repeat" size={15} /> Sincronizar CRM</button>
+        <button onClick={() => xlsxInputRef.current?.click()} style={topBtn} title="Importe a planilha de leads exportada do CRM Incbook (.xlsx)"><Icon name="userPlus" size={15} /> Importar planilha</button>
+        <input ref={xlsxInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => void handleXlsxUpload(e)} />
         <button onClick={() => sendToBackground({ type: 'OPEN_MANUAL' })} style={topIconBtn} aria-label="Manual de uso" title="Manual de uso"><Icon name="book" size={17} /></button>
         <button onClick={() => setShowSettings(true)} style={topIconBtn} aria-label="Configurações" title="Configurações"><Icon name="sliders" size={17} /></button>
       </header>
