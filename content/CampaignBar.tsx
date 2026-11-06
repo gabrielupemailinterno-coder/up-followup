@@ -1,5 +1,6 @@
 /**
  * Barra fixa de controle da campanha em andamento: Pausar / Retomar / Parar sempre à mão.
+ * Pode ser recolhida com um clique para não cobrir o WhatsApp.
  */
 
 import React, { useEffect, useState } from 'react'
@@ -16,12 +17,12 @@ export function CampaignBar() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [now, setNow] = useState(Date.now())
   const [confirmStop, setConfirmStop] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     const load = () => { void getCampaigns().then(setCampaigns) }
     load()
     const stop = watchStorage([K.CAMPAIGNS], load, 150)
-    // o contador regressivo só precisa rodar enquanto há campanha ativa (veja abaixo)
     return stop
   }, [])
 
@@ -33,8 +34,39 @@ export function CampaignBar() {
     return safeInterval(() => setNow(Date.now()), 1000)
   }, [hasActive])
 
+  // Expande automaticamente quando uma nova campanha começa
+  useEffect(() => {
+    if (hasActive) setCollapsed(false)
+  }, [hasActive])
+
   if (!hasActive) return null
 
+  // ── Versão recolhida: só uma pílula discreta ────────────────────────────────
+  if (collapsed) {
+    const running = active.some(c => c.status === 'running')
+    return (
+      <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999, fontFamily: FONT }}>
+        <button
+          onClick={() => setCollapsed(false)}
+          title="Expandir barra de campanha"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '7px',
+            background: `linear-gradient(135deg, ${C.inkSoft}, ${C.brand})`,
+            color: C.onBrand, border: 'none', borderRadius: R.pill,
+            padding: '7px 14px', fontSize: '12px', fontWeight: 700,
+            fontFamily: 'inherit', boxShadow: SHADOW.pop, cursor: 'pointer',
+          }}
+        >
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: running ? '#7EE8A2' : '#F3D87A', flexShrink: 0 }} />
+          <Icon name="megaphone" size={13} />
+          {active.length === 1 ? active[0].name : `${active.length} campanhas`}
+          <Icon name="chevronDown" size={12} style={{ opacity: 0.7, transform: 'rotate(180deg)' }} />
+        </button>
+      </div>
+    )
+  }
+
+  // ── Versão expandida ────────────────────────────────────────────────────────
   return (
     <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999, display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: FONT }}>
       {active.map(c => {
@@ -68,6 +100,14 @@ export function CampaignBar() {
                     ? <Btn icon="pause" onClick={() => sendToBackground({ type: 'CAMPAIGN_PAUSE', payload: { id: c.id } })}>Pausar</Btn>
                     : <Btn primary icon="play" onClick={() => sendToBackground({ type: 'CAMPAIGN_RESUME', payload: { id: c.id } })}>Retomar</Btn>}
                   <Btn danger icon="stop" onClick={() => setConfirmStop(c.id)}>Parar</Btn>
+                  {/* Botão recolher */}
+                  <button
+                    onClick={() => setCollapsed(true)}
+                    title="Recolher"
+                    style={{ width: '28px', height: '28px', borderRadius: R.sm, border: '1px solid rgba(247,244,237,0.3)', background: 'transparent', color: 'rgba(247,244,237,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    <Icon name="chevronDown" size={14} />
+                  </button>
                 </>
               )}
             </div>
