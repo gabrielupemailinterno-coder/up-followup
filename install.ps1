@@ -1,7 +1,6 @@
 # Instalador do Follow-up UP (Windows / PowerShell).
 #
-#   gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.ps1 -H "Accept: application/vnd.github.raw" | iex
-#   (repositório privado: exige o GitHub CLI logado com `gh auth login`)
+#   irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex
 #
 # Baixa a versão mais recente (GitHub Releases) e extrai em %USERPROFILE%\UP-Followup.
 # Rode o mesmo comando de novo para atualizar. Não precisa de Node nem de Git.
