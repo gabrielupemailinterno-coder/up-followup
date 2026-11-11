@@ -1,5 +1,7 @@
 # Atualizador do Follow-up UP
-# Clique com botão direito neste arquivo → Executar com o PowerShell
+# Cole no PowerShell para atualizar:
+#   irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/update-up.ps1 | iex
+# Ou clique com botão direito neste arquivo → Executar com o PowerShell
 
 $ErrorActionPreference = "Stop"
 $REPO     = "gabrielupemailinterno-coder/up-followup"
