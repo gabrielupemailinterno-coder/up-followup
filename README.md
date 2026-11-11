@@ -4,8 +4,6 @@ Extensão de Chrome/Edge, na identidade visual da UP, que adiciona **agendamento
 
 > Ferramenta de **uso interno** da UP Consultoria Imobiliária.
 
-> **Repositório privado:** antes de instalar, cada pessoa precisa do GitHub CLI (https://cli.github.com), de `gh auth login` e de acesso ao repositório (peça ao gestor).
-
 ## IA do CRM: Claude Haiku 5.5 (padrão) e Gemini (reserva)
 
 No CRM Incbook o Gemini pode conduzir o registro da atividade (lê a tela e escolhe o próximo clique); a extensão valida cada ação (telefone do lead conferido, comentário definido pelo código, modo teste respeitado, ações perigosas bloqueadas).
@@ -22,17 +20,17 @@ Não precisa de Node nem de Git. Abra o terminal, cole **um** comando e siga os 
 **Mac** (abra o app *Terminal*):
 
 ```bash
-gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.sh -H "Accept: application/vnd.github.raw" | bash
+curl -fsSL https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.sh | bash
 ```
 
 **Windows** (abra o *PowerShell*):
 
 ```powershell
-gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.ps1 -H "Accept: application/vnd.github.raw" | iex
+irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex
 ```
 
 > **Windows:** use o **PowerShell** (ícone azul). No Prompt de Comando (tela preta) o `irm` não existe; lá, use:
-> `powershell -NoProfile -ExecutionPolicy Bypass -Command "gh api repos/gabrielupemailinterno-coder/up-followup/contents/install.ps1 -H 'Accept: application/vnd.github.raw' | iex"`
+> `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.ps1 | iex"`
 
 O instalador baixa a versão mais recente, extrai em `~/UP-Followup` (Windows: `C:\Users\SEU_USUARIO\UP-Followup`), copia o caminho para a área de transferência e abre o `chrome://extensions`. Falta só:
 
@@ -44,7 +42,19 @@ O manual completo abre sozinho na primeira instalação.
 
 ### Atualizar
 
-Rode **o mesmo comando** de novo. Depois, em `chrome://extensions`, clique em ↻ na extensão e dê F5 no WhatsApp Web. Seus dados são mantidos.
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/update-up.ps1 | iex
+```
+
+**Mac** (Terminal):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gabrielupemailinterno-coder/up-followup/main/install.sh | bash
+```
+
+Depois, em `chrome://extensions`, clique em ↻ na extensão e dê F5 no WhatsApp Web. Seus dados são mantidos.
 
 ### Sem terminal
 
