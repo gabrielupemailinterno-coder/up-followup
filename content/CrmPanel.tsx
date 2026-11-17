@@ -135,7 +135,7 @@ function CrmPanelApp() {
         title={lead ? 'UP · mensagem para este lead' : 'UP · Follow-up'}
         style={{ position: 'fixed', right: open ? `${PANEL_W}px` : 0, top: '38%', zIndex: 2147483647, width: '40px', height: '64px', border: 'none', borderRadius: `${R.md} 0 0 ${R.md}`, background: `linear-gradient(160deg, ${C.inkSoft}, ${C.brand})`, boxShadow: SHADOW.dock, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
-        <img src={brandUrl('logo-up-offwhite.png')} alt="" style={{ width: '22px' }} />
+        <img src={brandUrl('evler-e-offwhite.png')} alt="" style={{ width: '20px' }} />
         {lead && !open && <span style={{ position: 'absolute', top: '-5px', left: '-5px', width: '14px', height: '14px', borderRadius: R.pill, background: C.accent, border: '2px solid #fff' }} />}
       </button>
       {lead && !open && !hintSeen && (

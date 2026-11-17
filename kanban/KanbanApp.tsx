@@ -345,7 +345,7 @@ export default function KanbanApp() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: C.bg, fontFamily: FONT, color: C.ink }}>
       {/* Barra superior */}
       <header style={{ background: `linear-gradient(120deg, ${C.inkSoft} 0%, ${C.brand} 60%, #56654F 100%)`, padding: '12px 22px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', color: C.onBrand }}>
-        <img src={logo('logo-up-offwhite.png')} alt="UP" style={{ height: '24px' }} />
+        <img src={logo('logo-evler-offwhite.png')} alt="Evler" style={{ height: '22px' }} />
         <span style={{ width: '1px', height: '24px', background: 'rgba(247,244,237,0.3)' }} />
 
         {/* Seletor de quadros */}

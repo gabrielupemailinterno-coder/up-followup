@@ -165,7 +165,7 @@ export function ContactPanel({ contact, onClose, onSchedule, onQuickAdd }: Props
     >
       <div style={{ background: `linear-gradient(135deg, ${C.inkSoft}, ${C.brand})`, color: C.onBrand, padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <img src={brandUrl('logo-up-offwhite.png')} alt="UP" style={{ height: '15px' }} />
+          <img src={brandUrl('logo-evler-offwhite.png')} alt="Evler" style={{ height: '14px' }} />
           <span style={{ flex: 1, fontSize: '10.5px', fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', opacity: 0.8 }}>Painel do contato</span>
           <button onClick={onClose} aria-label="Fechar painel" style={{ background: 'none', border: 'none', color: C.onBrand, display: 'flex' }}><Icon name="x" size={18} /></button>
         </div>

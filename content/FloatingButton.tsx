@@ -134,7 +134,7 @@ function FloatingApp() {
             style={{ background: C.surface, borderRadius: R.lg, boxShadow: SHADOW.dock, padding: '8px', width: '248px', border: `1px solid ${C.line}` }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px 10px' }}>
-              <img src={brandUrl('logo-up-verde.png')} alt="UP" style={{ height: '16px' }} />
+              <img src={brandUrl('logo-evler-escuro.png')} alt="Evler" style={{ height: '15px' }} />
               <span style={{ fontSize: '11px', fontWeight: 800, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Follow-up</span>
             </div>
             {items.map(it => (
@@ -174,7 +174,7 @@ function FloatingApp() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}
         >
-          <img src={brandUrl('logo-up-offwhite.png')} alt="" style={{ width: '22px' }} />
+          <img src={brandUrl('evler-e-offwhite.png')} alt="" style={{ width: '20px' }} />
           {pending > 0 && (
             <span style={{ position: 'absolute', top: '-6px', left: '-6px', minWidth: '20px', height: '20px', padding: '0 5px', borderRadius: R.pill, background: C.danger, color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
               {pending}

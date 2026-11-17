@@ -96,7 +96,7 @@ export function SendBanner({ job, onFinish }: { job: ActiveSend; onFinish: () =>
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-        <img src={brandUrl('logo-up-offwhite.png')} alt="UP" style={{ height: '16px' }} />
+        <img src={brandUrl('logo-evler-offwhite.png')} alt="Evler" style={{ height: '15px' }} />
         <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '5px' }}>
           <Icon name={job.auto ? 'bot' : 'hand'} size={13} /> {job.auto ? 'Envio automático' : 'Confirmar envio'}
         </span>

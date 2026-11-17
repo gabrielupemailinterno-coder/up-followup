@@ -97,7 +97,7 @@ export default function PopupApp() {
       {/* Cabeçalho */}
       <div style={{ background: `linear-gradient(135deg, ${C.inkSoft} 0%, ${C.brand} 55%, #56654F 100%)`, padding: '16px 18px 14px', color: C.onBrand }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src={logo('logo-up-offwhite.png')} alt="UP" style={{ height: '22px' }} />
+          <img src={logo('logo-evler-offwhite.png')} alt="Evler" style={{ height: '20px' }} />
           <span style={{ width: '1px', height: '22px', background: 'rgba(247,244,237,0.35)' }} />
           <div style={{ flex: 1, lineHeight: 1.15 }}>
             <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.01em' }}>Follow-up</div>
@@ -227,7 +227,7 @@ export default function PopupApp() {
       </div>
 
       <div style={{ padding: '8px 16px', background: C.surface, borderTop: `1px solid ${C.line}`, display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', color: C.muted, fontWeight: 600 }}>
-        <span>UP Consultoria Imobiliária</span>
+        <a href="https://wa.me/5532998316501" target="_blank" rel="noopener noreferrer" style={{ color: C.brand, textDecoration: 'none', fontWeight: 700 }}>Dúvidas? Fale com o Gabriel · (32) 99831-6501</a>
         <span>v{chrome.runtime.getManifest().version}</span>
       </div>
     </div>
