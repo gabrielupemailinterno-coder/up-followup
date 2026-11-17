@@ -39,13 +39,9 @@ if ((Test-Path $Dest) -and (Get-ChildItem $Dest -Force | Select-Object -First 1)
 $Tmp = Join-Path ([IO.Path]::GetTempPath()) ("up-followup-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 try {
-    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Die "GitHub CLI (gh) não encontrado. Instale em https://cli.github.com e rode 'gh auth login' com a conta que tem acesso ao repositório." }
-    gh auth status *> $null
-    if ($LASTEXITCODE -ne 0) { Die "Você não está logado no GitHub CLI. Rode 'gh auth login' e tente de novo." }
     Say 'Baixando a versão mais recente…'
-    $tagArgs = @(); if ($env:UP_FOLLOWUP_TAG) { $tagArgs = @($env:UP_FOLLOWUP_TAG) }
-    gh release download @tagArgs --repo $Repo --pattern $Asset --dir $Tmp --clobber
-    if ($LASTEXITCODE -ne 0) { Die "Não consegui baixar a release. Verifique a internet, o 'gh auth login' e se a sua conta tem acesso ao repositório." }
+    $Url = if ($env:UP_FOLLOWUP_TAG) { "https://github.com/$Repo/releases/download/$($env:UP_FOLLOWUP_TAG)/$Asset" } else { "https://github.com/$Repo/releases/latest/download/$Asset" }
+    try { Invoke-WebRequest -Uri $Url -OutFile (Join-Path $Tmp $Asset) -UseBasicParsing } catch { Die "Não consegui baixar a release. Verifique a internet e tente de novo." }
     $Zip = Join-Path $Tmp $Asset
 
     $Extract = Join-Path $Tmp 'x'
