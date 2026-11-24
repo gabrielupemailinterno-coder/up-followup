@@ -51,7 +51,7 @@ import {
   buildActivityComment, isDuplicate, makeDedupeKey, matchLeadByPhone, pickActivityType,
 } from '../src/crm'
 import { renderTemplate } from '../src/templates'
-import { nextMorning, pickVariantIndex, randomDelayMs } from '../src/campaign'
+import { pickVariantIndex, randomDelayMs } from '../src/campaign'
 import type {
   ActiveSend, BackgroundMessage, Campaign, CrmJob, GeminiStatus, LeadContext, Recurrence, Reply, ScheduledMessage, Task,
 } from '../src/types'
@@ -277,11 +277,6 @@ async function requestSend(id: string): Promise<Reply> {
   if (await getFreshActiveSend()) return fail('BUSY', 'Há outro envio em andamento. Tentando de novo em instantes.')
 
   const [settings, log] = await Promise.all([getSettings(), getTodayLog()])
-  if (log.count >= settings.dailyLimit) {
-    const reply = fail('DAILY_LIMIT', `Limite diário atingido (${log.count}/${settings.dailyLimit}). Tente amanhã ou ajuste em Configurações.`)
-    notify('limit', 'WhatsApp Web Mod 🛑', reply.message)
-    return reply
-  }
   const waitMs = log.lastSentAt + settings.minIntervalSec * 1000 - Date.now()
   if (waitMs > 0) {
     return fail('MIN_INTERVAL', `Aguarde ${Math.ceil(waitMs / 1000)}s desde o último envio antes de enviar outro.`)
@@ -414,16 +409,6 @@ async function advanceCampaign(id: string): Promise<Reply> {
     return { ok: true }
   }
 
-  const [settings, log] = await Promise.all([getSettings(), getTodayLog()])
-  if (log.count >= settings.dailyLimit) {
-    await saveCampaign({
-      ...c, nextAt: nextMorning(),
-      pauseReason: `Limite diário atingido (${log.count}/${settings.dailyLimit}). Retoma amanhã às 09:00.`,
-    })
-    notify(`camp_limit_${c.id}`, 'WhatsApp Web Mod 🛑', `Campanha "${c.name}" em pausa: limite diário atingido. Retoma amanhã às 09:00.`)
-    return { ok: true }
-  }
-
   const item = c.items[idx]
   const variantIdx = pickVariantIndex(c.variants.length)
   const { text, missing } = renderTemplate(c.variants[variantIdx], { contactName: item.name, vars: c.vars })
@@ -492,7 +477,13 @@ async function finishCampaignItem(job: ActiveSend, p: SendResult): Promise<numbe
     }
   }
 
-  const delay = randomDelayMs(c.minSec, c.maxSec)
+  let delay = randomDelayMs(c.minSec, c.maxSec)
+  // A cada N envios com sucesso, uma pausa maior (parece uso humano e protege o número).
+  const sentCount = items.filter(i => i.status === 'sent').length
+  if (p.ok && status === 'running' && settings.batchSize > 0 && sentCount > 0 && sentCount % settings.batchSize === 0) {
+    delay = randomDelayMs(settings.batchPauseMinMin * 60, settings.batchPauseMaxMin * 60)
+    pauseReason = `Pausa de segurança após ${sentCount} envios. Retoma sozinha em ${Math.round(delay / 60000)} min.`
+  }
   await saveCampaign({ ...c, items, status, pauseReason, consecutiveFailures, nextAt: Date.now() + delay })
 
   if (status === 'paused') notify(`camp_pause_${c.id}`, 'WhatsApp Web Mod ⏸️', `Campanha "${c.name}" pausada: ${pauseReason}`)

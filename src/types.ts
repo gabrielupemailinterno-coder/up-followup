@@ -81,7 +81,9 @@ export interface Task {
 
 export interface AppSettings {
   notifyBeforeMinutes: number   // 0 = sem aviso prévio
-  dailyLimit: number            // máximo de envios por dia nesta conta
+  batchSize: number             // a cada N envios de campanha, faz uma pausa maior
+  batchPauseMinMin: number      // duração mínima da pausa maior (minutos)
+  batchPauseMaxMin: number      // duração máxima da pausa maior (minutos)
   minIntervalSec: number        // intervalo mínimo entre envios agendados
   maxConsecutiveFailures: number   // campanha pausa após N falhas seguidas
   campaignMinFloorSec: number   // piso do intervalo mínimo de uma campanha

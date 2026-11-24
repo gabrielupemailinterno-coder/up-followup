@@ -161,9 +161,19 @@ export function SettingsModal({
           <h3 style={h3}>Proteção da conta</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <label style={labelStyle}>
-              Limite diário de envios
-              <input type="number" min={1} style={inputStyle} value={settings.dailyLimit}
-                onChange={e => setSettings({ ...settings, dailyLimit: num(e.target.value, 1, 30) })} />
+              Pausa maior a cada (envios)
+              <input type="number" min={0} style={inputStyle} value={settings.batchSize}
+                onChange={e => setSettings({ ...settings, batchSize: num(e.target.value, 0, 40) })} />
+            </label>
+            <label style={labelStyle}>
+              Pausa maior: mínimo (min)
+              <input type="number" min={1} style={inputStyle} value={settings.batchPauseMinMin}
+                onChange={e => setSettings({ ...settings, batchPauseMinMin: num(e.target.value, 1, 10) })} />
+            </label>
+            <label style={labelStyle}>
+              Pausa maior: máximo (min)
+              <input type="number" min={1} style={inputStyle} value={settings.batchPauseMaxMin}
+                onChange={e => setSettings({ ...settings, batchPauseMaxMin: num(e.target.value, 1, 20) })} />
             </label>
             <label style={labelStyle}>
               Intervalo entre follow-ups (s)

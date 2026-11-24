@@ -71,7 +71,7 @@ Está dentro da extensão (ícone UP, livro) e em PDF na página de [Releases](h
 - **Painel do contato** no WhatsApp Web: etapa, tags, notas, follow-ups e tarefas da conversa aberta.
 - **Respostas rápidas:** digite `/` no campo de mensagem.
 - **Tarefas** e lembretes com notificação.
-- **Campanhas:** público do Kanban ou lista colada, no mínimo 5 variações de texto, intervalos aleatórios, limite diário, pausa automática em falhas e barra Pausar/Retomar/Parar.
+- **Campanhas:** público do Kanban ou lista colada, no mínimo 5 variações de texto, intervalos aleatórios, pausa maior a cada 40 envios, pausa automática em falhas e barra Pausar/Retomar/Parar.
 - **Métricas:** envios por dia, taxa de conclusão, leads por coluna, tempo parado por etapa.
 - **CRM Incbook:** lê seus leads, mostra a etapa do lead no WhatsApp, lista leads sem ação e registra a atividade no lead certo depois de cada envio (opera a tela do CRM como uma pessoa; começa em **modo teste**, que preenche mas não envia).
 - **Backup** em JSON e CSV.

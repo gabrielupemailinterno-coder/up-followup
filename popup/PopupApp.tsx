@@ -29,7 +29,7 @@ function relTime(ts: number, now: number): string {
 export default function PopupApp() {
   const [messages, setMessages] = useState<ScheduledMessage[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
-  const [usage, setUsage] = useState({ count: 0, limit: 30 })
+  const [usage, setUsage] = useState({ count: 0 })
   const [cardCount, setCardCount] = useState(0)
   const [hasWaTab, setHasWaTab] = useState(false)
   const [crmJobs, setCrmJobs] = useState<CrmJob[]>([])
@@ -55,7 +55,7 @@ export default function PopupApp() {
     setCrmCfg({ enabled: settings.crmEnabled, dryRun: settings.crmDryRun })
     setMessages(msgs.sort((a, b) => a.scheduledAt - b.scheduledAt))
     setTasks(allTasks.filter(t => !t.done).sort((a, b) => a.dueAt - b.dueAt))
-    setUsage({ count: log.count, limit: settings.dailyLimit })
+    setUsage({ count: log.count })
     setCardCount(cards.length)
     setHasWaTab(tabs.length > 0)
     setHideOnboarding(Boolean(hidden[HIDE_KEY]))
@@ -90,7 +90,6 @@ export default function PopupApp() {
     { done: messages.length > 0, label: 'Agende seu primeiro follow-up', action: () => sendToBackground({ type: 'OPEN_MANUAL', payload: { hash: 'agendar' } }), cta: 'Como' },
   ]
   const showOnboarding = !hideOnboarding && !steps.every(s => s.done)
-  const pct = usage.limit ? Math.min(100, (usage.count / usage.limit) * 100) : 0
 
   return (
     <div style={{ width: '400px', fontFamily: FONT, color: C.ink, background: C.bg }}>
@@ -107,14 +106,9 @@ export default function PopupApp() {
           <IconBtn icon="sliders" label="Configurações" onClick={() => sendToBackground({ type: 'OPEN_KANBAN', payload: { hash: 'config' } })} />
         </div>
 
-        <div style={{ marginTop: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, marginBottom: '5px', opacity: 0.9 }}>
-            <span>Envios de hoje</span>
-            <span>{usage.count} de {usage.limit}</span>
-          </div>
-          <div style={{ height: '6px', background: 'rgba(247,244,237,0.22)', borderRadius: R.pill }} role="progressbar" aria-valuenow={usage.count} aria-valuemax={usage.limit} aria-label="Envios de hoje">
-            <div style={{ height: '6px', width: `${pct}%`, background: pct >= 80 ? '#F0C27A' : C.onBrand, borderRadius: R.pill, transition: 'width .3s' }} />
-          </div>
+        <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, opacity: 0.9 }}>
+          <span>Envios de hoje</span>
+          <span>{usage.count}</span>
         </div>
       </div>
 

@@ -362,7 +362,7 @@
         <table>
           <thead><tr><th style="width:34%">Motivo</th><th>O que acontece</th></tr></thead>
           <tbody>
-            <tr><td>Limite diário atingido</td><td>Pausa e retoma sozinha às 9h do dia seguinte, se o navegador estiver aberto.</td></tr>
+            <tr><td>Pausa de segurança</td><td>A cada 40 envios a campanha para de 10 a 20 minutos e retoma sozinha, se o navegador estiver aberto.</td></tr>
             <tr><td>Falhas seguidas (padrão: 3)</td><td>Pausa e mostra o último erro. Corrija e clique em Retomar.</td></tr>
             <tr><td>Aviso de restrição do WhatsApp</td><td>Pausa imediatamente. <strong>Pare e procure o gestor</strong> antes de continuar.</td></tr>
             <tr><td>Navegador reiniciado ou computador desligado</td><td>A campanha volta <em>pausada</em>. Retome quando quiser.</td></tr>
@@ -423,7 +423,7 @@
         <table>
           <thead><tr><th style="width:34%">Opção</th><th>Para que serve</th></tr></thead>
           <tbody>
-            <tr><td>Limite diário de envios</td><td>Máximo de mensagens enviadas por dia nesta conta. Padrão: 30.</td></tr>
+            <tr><td>Pausa maior a cada (envios)</td><td>Depois desse número de envios de campanha, faz uma pausa maior. Padrão: 40. A duração (padrão 10 a 20 min) é sorteada entre o mínimo e o máximo configurados.</td></tr>
             <tr><td>Intervalo entre follow-ups</td><td>Espera mínima entre dois follow-ups agendados. Padrão: 60 s.</td></tr>
             <tr><td>Avisar antes</td><td>Minutos de antecedência do aviso de um follow-up. Padrão: 5.</td></tr>
             <tr><td>Pausar campanha após falhas</td><td>Quantas falhas seguidas pausam a campanha. Padrão: 3.</td></tr>
@@ -440,7 +440,7 @@
         <h3 id="popup">O ícone da extensão (barra do navegador)</h3>
         <p>Clique no ícone UP para ver o resumo do seu dia:</p>
         <ul>
-          <li><strong>Envios de hoje</strong>: quantas mensagens você já enviou em relação ao limite diário.</li>
+          <li><strong>Envios de hoje</strong>: quantas mensagens você já enviou hoje.</li>
           <li><strong>Atalhos</strong> para WhatsApp, Kanban, Campanhas e Métricas.</li>
           <li><strong>Primeiros passos</strong>: checklist que some quando você conclui tudo (ou clique em <em>Ocultar</em>).</li>
           <li><strong>Fila</strong>: follow-ups <span class="chip danger">vencidos</span> (que precisam da sua decisão) e os próximos. Cada item mostra se é <span class="chip brand">Automático</span> ou <span class="chip muted">Confirmar</span>.</li>
@@ -460,7 +460,7 @@
         <ul>
           <li><strong>Fale com quem já conversou com você.</strong> Evite mandar mensagens para números que nunca interagiram com a UP.</li>
           <li><strong>Varie os textos.</strong> Mensagens idênticas para muita gente são o principal sinal de spam. Use as variações e o <code>{primeiro_nome}</code>.</li>
-          <li><strong>Respeite o ritmo.</strong> Não reduza o limite diário nem os intervalos além do recomendado. Aumente o volume aos poucos, não de uma vez.</li>
+          <li><strong>Respeite o ritmo.</strong> Não reduza os intervalos nem a pausa maior além do recomendado. Aumente o volume aos poucos, não de uma vez.</li>
           <li><strong>Escolha bons horários.</strong> Prefira horário comercial. Evite madrugada e domingos.</li>
           <li><strong>Pediu para parar? Pare.</strong> Se o lead pedir para não receber mais mensagens, tire-o das campanhas e dos follow-ups recorrentes.</li>
           <li><strong>Revise antes de iniciar.</strong> Leia a prévia, confira o público e teste primeiro com um número seu.</li>
@@ -475,13 +475,13 @@
         <h2>Problemas comuns</h2>
 
         <div class="qa"><h4>A mensagem não saiu sozinha no horário</h4>
-          <ul><li>O computador estava ligado e o navegador aberto? Alarmes só funcionam assim.</li><li>O WhatsApp Web estava conectado (sem QR code na tela)?</li><li>Você atingiu o limite diário? Veja o contador no ícone UP.</li><li>Confira a aba <em>Fila</em>: se estiver em <span class="chip danger">Vencidos</span>, clique em Enviar.</li><li>Veja o item no <em>Histórico</em>: a razão da falha aparece ali.</li></ul></div>
+          <ul><li>O computador estava ligado e o navegador aberto? Alarmes só funcionam assim.</li><li>O WhatsApp Web estava conectado (sem QR code na tela)?</li><li>Veja o contador de envios de hoje no ícone UP.</li><li>Confira a aba <em>Fila</em>: se estiver em <span class="chip danger">Vencidos</span>, clique em Enviar.</li><li>Veja o item no <em>Histórico</em>: a razão da falha aparece ali.</li></ul></div>
 
         <div class="qa"><h4>Apareceu “O número é inválido ou não está no WhatsApp”</h4><p>Confira o telefone: precisa ter DDD (ex.: 31 99999-9999) e o contato precisa ter WhatsApp. Corrija no Kanban ou reagende com o número certo.</p></div>
 
         <div class="qa"><h4>“O WhatsApp Web não está conectado”</h4><p>Abra web.whatsapp.com, leia o QR code com o celular e, depois, reenvie pela fila (botão <strong>Enviar</strong>) ou reagende.</p></div>
 
-        <div class="qa"><h4>A campanha pausou sozinha</h4><p>A barra de controle e a tela de Campanhas mostram o motivo. Limite diário e reinício do navegador são normais; falhas seguidas pedem que você verifique a conexão e os telefones antes de retomar. Em caso de aviso de restrição, não retome e procure o gestor.</p></div>
+        <div class="qa"><h4>A campanha pausou sozinha</h4><p>A barra de controle e a tela de Campanhas mostram o motivo. A pausa de segurança a cada 40 envios e o reinício do navegador são normais; falhas seguidas pedem que você verifique a conexão e os telefones antes de retomar. Em caso de aviso de restrição, não retome e procure o gestor.</p></div>
 
         <div class="qa"><h4>O telefone do contato não foi detectado</h4><p>O sistema lê o número no painel <em>Dados do contato</em> do WhatsApp. Se o WhatsApp não mostrar o número daquele contato (grupos, ou contatos que escondem o número), clique em <em>Detectar do WhatsApp</em> para tentar de novo ou digite o telefone com DDD.</p></div>
 

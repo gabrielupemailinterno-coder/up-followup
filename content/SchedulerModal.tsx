@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Recurrence, ScheduledMessage, Template } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { getSettings, getTemplates, getTodayLog } from '../src/storage'
+import { getTemplates, getTodayLog } from '../src/storage'
 import { formatPhone, normalizePhone } from '../src/phone'
 import { extraVariables, renderTemplate } from '../src/templates'
 import { C, R } from '../src/theme'
@@ -48,16 +48,16 @@ export function SchedulerModal({ contact, onClose }: Props) {
   const [recurrence, setRecurrence] = useState<Recurrence>('none')
   const [autoSend, setAutoSend] = useState(true)
   const [templates, setTemplates] = useState<Template[]>([])
-  const [usage, setUsage] = useState<{ count: number; limit: number } | null>(null)
+  const [usage, setUsage] = useState<{ count: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     void (async () => {
-      const [tpls, settings, log] = await Promise.all([getTemplates(), getSettings(), getTodayLog()])
+      const [tpls, log] = await Promise.all([getTemplates(), getTodayLog()])
       setTemplates(tpls)
-      setUsage({ count: log.count, limit: settings.dailyLimit })
+      setUsage({ count: log.count })
     })()
   }, [])
 
@@ -208,7 +208,7 @@ export function SchedulerModal({ contact, onClose }: Props) {
 
           <p style={{ margin: 0, fontSize: '11.5px', color: C.muted, lineHeight: 1.5 }}>
             Se o navegador estiver fechado na hora, o item fica em “Vencidos” para você decidir; nada sai atrasado sozinho.
-            {usage && ` Hoje: ${usage.count} de ${usage.limit} envios.`}
+            {usage && ` Hoje: ${usage.count} envios.`}
           </p>
 
           {error && <div role="alert" style={errorStyle}>{error}</div>}

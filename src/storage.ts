@@ -20,7 +20,9 @@ export const DEFAULT_COLUMNS: KanbanColumn[] = [
 
 export const DEFAULT_SETTINGS: AppSettings = {
   notifyBeforeMinutes: 5,
-  dailyLimit: 30,
+  batchSize: 40,
+  batchPauseMinMin: 10,
+  batchPauseMaxMin: 20,
   minIntervalSec: 60,
   maxConsecutiveFailures: 3,
   campaignMinFloorSec: 15,
