@@ -95,9 +95,9 @@ export function CampaignPreviewModal({ campaign: c, onClose, onStart }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
               {[
-                ['Vão receber', String(preview.recipients.length)],
-                ['Duração estimada', preview.recipients.length ? `cerca de ${formatDuration(preview.seconds)}` : '—'],
-                ['Se iniciar agora, termina', preview.recipients.length ? ends.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '—'],
+                ['Vão receber', String(preview.sending)],
+                ['Duração estimada', preview.sending ? `cerca de ${formatDuration(preview.seconds)}` : '—'],
+                ['Se iniciar agora, termina', preview.sending ? ends.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '—'],
               ].map(([label, value]) => (
                 <div key={label} style={{ border: `1px solid ${C.line}`, borderRadius: R.md, padding: '10px 12px' }}>
                   <div style={{ fontSize: '11px', color: C.muted, fontWeight: 700 }}>{label}</div>
@@ -186,7 +186,7 @@ export function CampaignPreviewModal({ campaign: c, onClose, onStart }: {
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
               {onStart && blocking.length > 0 && <span style={{ fontSize: '12px', fontWeight: 700, color: C.danger, flex: 1 }}>Há avisos em vermelho: confira antes de iniciar.</span>}
               <button style={ghostBtn} onClick={onClose}>Fechar</button>
-              {onStart && preview.recipients.length > 0 && (
+              {onStart && preview.sending > 0 && (
                 <button style={primaryBtn()} onClick={onStart}><Icon name="play" size={14} /> {c.status === 'draft' ? 'Iniciar' : 'Retomar'}</button>
               )}
             </div>

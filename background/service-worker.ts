@@ -48,6 +48,7 @@ import {
 } from '../src/storage'
 import { getImage, pruneImages } from '../src/images'
 import { phoneKey } from '../src/groupImport'
+import { BLOCK_REASON, getBlockedKeys } from '../src/optOut'
 import { callGemini } from '../src/geminiApi'
 import { callClaude, type ClaudeSchema } from '../src/claudeApi'
 import { SUGGEST_SCHEMA, SUGGEST_SYSTEM, buildSuggestPrompt, parseSuggestions } from '../src/gemini'
@@ -279,6 +280,14 @@ async function requestSend(id: string): Promise<Reply> {
     return fail('MISSING_VARS', `Variáveis sem valor: ${missing.map(v => `{${v}}`).join(', ')}.`)
   }
 
+  if ((await getBlockedKeys()).has(phoneKey(msg.phone))) {
+    await patchScheduledMessage(msg.id, { status: 'skipped', failReason: BLOCK_REASON })
+    // No envio automático o aviso sai por quem chamou.
+    if (!msg.autoSend) notify(`blocked_${msg.id}`, 'WhatsApp Web Mod 🛑', `${msg.contactName}: ${BLOCK_REASON}`)
+    await updateBadge()
+    return fail('BLOCKED', BLOCK_REASON)
+  }
+
   if (msg.imageId && !await getImage(msg.imageId)) return fail('NO_IMAGE', 'A imagem anexada não foi encontrada. Agende de novo.')
 
   if (await getFreshActiveSend()) return fail('BUSY', 'Há outro envio em andamento. Tentando de novo em instantes.')
@@ -416,6 +425,14 @@ async function advanceCampaign(id: string): Promise<Reply> {
   if (!c || c.status !== 'running') return { ok: true }
   if (Date.now() < c.nextAt - 1500) return { ok: true }
   if (await getFreshActiveSend()) return { ok: true }
+
+  // Quem pediu para não receber é pulado, mesmo que já estivesse na lista da campanha.
+  const blocked = await getBlockedKeys()
+  const isBlocked = (i: Campaign['items'][number]) => i.status === 'pending' && blocked.has(phoneKey(i.phone))
+  if (c.items.some(isBlocked)) {
+    c.items = c.items.map(i => (isBlocked(i) ? { ...i, status: 'blocked' as const, error: BLOCK_REASON } : i))
+    await saveCampaign(c)
+  }
 
   const idx = c.items.findIndex(i => i.status === 'pending')
   if (idx < 0) {

@@ -154,7 +154,7 @@ export interface ActiveSend {
 // ─── Campanhas ────────────────────────────────────────────────────────────────
 
 export type CampaignStatus = 'draft' | 'running' | 'paused' | 'stopped' | 'done'
-export type CampaignItemStatus = 'pending' | 'sending' | 'sent' | 'failed'
+export type CampaignItemStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'blocked'   // blocked: pediu para não receber
 
 export interface CampaignItem {
   phone: string

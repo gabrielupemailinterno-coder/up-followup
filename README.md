@@ -75,6 +75,7 @@ Está dentro da extensão (ícone UP, livro) e em PDF na página de [Releases](h
 - **Aba Claude:** cola o código gerado pelo Claude (quadros, etapas, contatos, campanhas em rascunho, agendamentos, tarefas), confere e aplica; salva um relatório sem telefones.
 - **Imagem:** agendamentos e campanhas podem levar uma imagem, com o texto como legenda.
 - **Link:** segunda mensagem com botão (experimental) ou cartão de prévia.
+- **Bloqueio:** quem está em "Sem interesse" ou tem a tag "Pediu para sair" não recebe campanhas nem agendamentos.
 - **Visualizar campanha:** prévia de destinatários, mensagens, avisos e duração antes de iniciar.
 - **Campanhas:** público do Kanban ou lista colada, no mínimo 5 variações de texto, intervalos aleatórios, pausa maior a cada 40 envios, pausa automática em falhas e barra Pausar/Retomar/Parar.
 - **Métricas:** envios por dia, taxa de conclusão, leads por coluna, tempo parado por etapa.

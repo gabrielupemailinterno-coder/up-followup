@@ -132,7 +132,8 @@ export function campaignProgress(c: Campaign) {
   const sent = c.items.filter(i => i.status === 'sent').length
   const failed = c.items.filter(i => i.status === 'failed').length
   const pending = c.items.filter(i => i.status === 'pending' || i.status === 'sending').length
-  return { total, sent, failed, pending, done: sent + failed }
+  const blocked = c.items.filter(i => i.status === 'blocked').length
+  return { total, sent, failed, blocked, pending, done: sent + failed + blocked }
 }
 
 /** 09:00 do dia seguinte (horário local), usado quando o limite diário é atingido. */

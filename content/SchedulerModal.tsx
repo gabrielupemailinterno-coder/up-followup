@@ -11,6 +11,8 @@ import { extraVariables, renderTemplate } from '../src/templates'
 import { C, R } from '../src/theme'
 import { ImagePicker, ImageThumb } from '../src/ImagePicker'
 import { LinkFields } from '../src/LinkFields'
+import { BLOCK_REASON, getBlockedKeys } from '../src/optOut'
+import { phoneKey } from '../src/groupImport'
 import { normalizeLink } from '../src/link'
 import {
   overlayStyle, modalStyle, labelStyle, inputStyle, primaryBtn, errorStyle, toLocalInput, quickTimes, okStyle,
@@ -92,6 +94,8 @@ export function SchedulerModal({ contact, onClose }: Props) {
     if (!Number.isFinite(scheduledAt) || scheduledAt <= Date.now()) {
       return setError('Escolha uma data e hora no futuro.')
     }
+
+    if ((await getBlockedKeys()).has(phoneKey(phone))) return setError(BLOCK_REASON)
 
     const checkedLink = link ? normalizeLink(link) : null
     if (checkedLink && !checkedLink.ok) return setError(checkedLink.error)

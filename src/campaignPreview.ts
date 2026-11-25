@@ -6,6 +6,7 @@
 import type { AppSettings, Campaign, KanbanBoard, KanbanCard, KanbanColumn } from './types'
 import { phoneKey } from './groupImport'
 import { extractVariables, realName, renderTemplate } from './templates'
+import { blockedKeys } from './optOut'
 
 export interface PreviewInput {
   campaign: Campaign
@@ -23,10 +24,12 @@ export interface Recipient {
   name: string               // vazio quando o contato não tem nome
   stage: string              // "Quadro / Etapa" de onde está hoje
   problems: string[]
+  blocked: boolean           // pediu para não receber: será pulado
 }
 
 export interface CampaignPreview {
   recipients: Recipient[]    // só os pendentes, na ordem de envio
+  sending: number            // quantos realmente vão receber (sem os bloqueados)
   alerts: { level: 'stop' | 'warn'; text: string }[]
   actions: string[]          // o que acontece a cada envio e no andamento
   seconds: number            // duração estimada
@@ -35,7 +38,7 @@ export interface CampaignPreview {
 
 /** Tempo médio para abrir a conversa e enviar, além do intervalo configurado. */
 const SEND_OVERHEAD_S = 10
-const STOP_STAGE = /sem interesse|perdido/i
+const LOST_STAGE = /perdido/i
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
@@ -48,7 +51,11 @@ export function formatDuration(seconds: number): string {
 
 export function buildCampaignPreview(input: PreviewInput): CampaignPreview {
   const { campaign: c, boards, columns, cards, settings, hasImage, now = Date.now() } = input
-  const pending = c.items.filter(i => i.status === 'pending' || i.status === 'sending')
+  const queued = c.items.filter(i => i.status === 'pending' || i.status === 'sending')
+  const blocked = new Set<string>()
+  for (const board of boards) blockedKeys(columns[board.id] ?? [], cards[board.id] ?? [], blocked)
+  const pending = queued.filter(i => !blocked.has(phoneKey(i.phone)))
+  const skippedCount = queued.length - pending.length
 
   // Onde cada contato está hoje.
   const where = new Map<string, { board: KanbanBoard; column?: KanbanColumn }[]>()
@@ -85,12 +92,16 @@ export function buildCampaignPreview(input: PreviewInput): CampaignPreview {
   let goingBack = 0
   const destinations = new Set<string>()
 
-  const recipients: Recipient[] = pending.map(item => {
+  const recipients: Recipient[] = queued.map(item => {
     const places = where.get(phoneKey(item.phone)) ?? []
     const name = realName(item.name)
     const problems: string[] = []
+    const stage = places.map(p => `${p.board.name} / ${p.column?.title ?? '?'}`).join(' · ') || 'fora do Kanban'
+    if (blocked.has(phoneKey(item.phone))) {
+      return { phone: item.phone, name, stage, problems: ['pediu para não receber: não vai ser enviado'], blocked: true }
+    }
     if (usesName && !name) { nameless++; problems.push('sem nome: vai falhar') }
-    if (places.some(p => p.column && STOP_STAGE.test(p.column.title))) { stopped++; problems.push('está em etapa de quem não quer contato') }
+    if (places.some(p => p.column && LOST_STAGE.test(p.column.title))) { stopped++; problems.push('está em etapa "Perdido"') }
     if (c.moveToColumnId) {
       // Mesma regra do envio: o primeiro quadro que tem a etapa de destino e o contato.
       const hit = places.find(p => (columns[p.board.id] ?? []).some(col => col.id === c.moveToColumnId))
@@ -101,7 +112,7 @@ export function buildCampaignPreview(input: PreviewInput): CampaignPreview {
         if (hit.column && hit.column.order > target.order) { goingBack++; problems.push(`vai voltar para "${target.title}"`) }
       }
     }
-    return { phone: item.phone, name, stage: places.map(p => `${p.board.name} / ${p.column?.title ?? '?'}`).join(' · ') || 'fora do Kanban', problems }
+    return { phone: item.phone, name, stage, problems, blocked: false }
   })
 
   const alerts: CampaignPreview['alerts'] = []
@@ -111,7 +122,8 @@ export function buildCampaignPreview(input: PreviewInput): CampaignPreview {
     renderTemplate(v, { contactName: i.name, vars: c.vars }).missing.filter(m => m !== 'nome' && m !== 'primeiro_nome'))))
   if (missing.size) alerts.push({ level: 'stop', text: `Falta preencher: ${[...missing].map(m => `{${m}}`).join(', ')}.` })
   if (nameless) alerts.push({ level: 'stop', text: `${plural(nameless, 'contato não tem nome', 'contatos não têm nome')}, mas as mensagens usam o nome: o envio vai falhar para ${nameless === 1 ? 'ele' : 'eles'}.` })
-  if (stopped) alerts.push({ level: 'stop', text: `${plural(stopped, 'contato está', 'contatos estão')} em "Sem interesse" ou "Perdido".` })
+  if (skippedCount) alerts.push({ level: 'warn', text: `${plural(skippedCount, 'contato pediu para não receber e será pulado', 'contatos pediram para não receber e serão pulados')}.` })
+  if (stopped) alerts.push({ level: 'stop', text: `${plural(stopped, 'contato está', 'contatos estão')} em "Perdido".` })
   if (goingBack) alerts.push({ level: 'warn', text: `${plural(goingBack, 'contato está', 'contatos estão')} em etapa mais avançada e ${goingBack === 1 ? 'vai voltar' : 'vão voltar'} depois do envio.` })
   for (const [name, n] of alsoPending) alerts.push({ level: 'warn', text: `${plural(n, 'contato também está pendente', 'contatos também estão pendentes')} na campanha "${name}".` })
   if (recently.size) alerts.push({ level: 'warn', text: `${plural(recently.size, 'contato já recebeu', 'contatos já receberam')} outra campanha nas últimas 48 horas.` })
@@ -140,5 +152,5 @@ export function buildCampaignPreview(input: PreviewInput): CampaignPreview {
     `Pausa sozinha depois de ${settings.maxConsecutiveFailures} falhas seguidas ou aviso de restrição.`,
   ]
 
-  return { recipients, alerts, actions, seconds, pauses }
+  return { recipients, sending: pending.length, alerts, actions, seconds, pauses }
 }

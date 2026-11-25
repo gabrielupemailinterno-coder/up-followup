@@ -50,7 +50,7 @@ export async function buildReport(now = Date.now()) {
       const p = campaignProgress(c)
       return {
         nome: clip(c.name), situacao: c.status, criadaEm: localDate(c.createdAt),
-        total: p.total, enviadas: p.sent, falhas: p.failed, pendentes: p.pending,
+        total: p.total, enviadas: p.sent, falhas: p.failed, pendentes: p.pending, bloqueados: p.blocked,
         motivoPausa: c.pauseReason ? clip(c.pauseReason) : undefined,
         temImagem: Boolean(c.imageId),
         link: c.link?.style,

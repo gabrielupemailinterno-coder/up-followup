@@ -108,7 +108,7 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
                 <strong style={{ fontSize: '15px', color: C.ink }}>{c.name}</strong>
                 <span style={{ fontSize: '11px', fontWeight: 800, color: st.fg, background: st.bg, borderRadius: R.pill, padding: '2px 10px' }}>{st.text}</span>
                 <span style={{ fontSize: '12px', color: C.muted, flex: 1, fontWeight: 600 }}>
-                  {p.sent} enviadas · {p.failed} falhas · {p.pending} pendentes · {c.minSec}–{c.maxSec}s
+                  {p.sent} enviadas · {p.failed} falhas · {p.pending} pendentes{p.blocked > 0 && ` · ${p.blocked} bloqueados`} · {c.minSec}–{c.maxSec}s
                 </span>
                 {c.status === 'draft' && <button style={primaryBtn()} onClick={() => start(c)}><Icon name="play" size={14} /> Iniciar</button>}
                 {(c.status === 'paused' || c.status === 'stopped') && p.pending > 0 && (
@@ -155,7 +155,7 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
                         <tr key={`${it.phone}-${i}`} style={{ borderTop: `1px solid ${C.line}` }}>
                           <td style={{ ...td, fontWeight: 700 }}>{it.name}</td>
                           <td style={td}>{formatPhone(it.phone)}</td>
-                          <td style={td}>{{ pending: 'Pendente', sending: 'Enviando', sent: 'Enviado', failed: 'Falhou' }[it.status]}</td>
+                          <td style={td}>{{ pending: 'Pendente', sending: 'Enviando', sent: 'Enviado', failed: 'Falhou', blocked: 'Bloqueado' }[it.status]}</td>
                           <td style={td}>{it.variantIdx !== undefined ? it.variantIdx + 1 : '—'}</td>
                           <td style={{ ...td, color: it.error ? C.danger : C.muted }}>{it.error ?? (it.sentAt ? new Date(it.sentAt).toLocaleTimeString('pt-BR') : '')}</td>
                         </tr>

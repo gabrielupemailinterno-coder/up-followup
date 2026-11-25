@@ -81,6 +81,7 @@ export function CampaignBar() {
                   <Icon name="megaphone" size={15} /> {c.name}
                   <span style={{ fontWeight: 600, opacity: 0.85 }}>· {p.done}/{p.total}</span>
                   {p.failed > 0 && <span style={{ color: '#F3B7A8', fontWeight: 700 }}>· {p.failed} falha(s)</span>}
+                  {p.blocked > 0 && <span style={{ fontWeight: 700, opacity: 0.85 }}>· {p.blocked} bloqueado(s)</span>}
                 </div>
                 <div style={{ fontSize: '11.5px', opacity: 0.85, marginTop: '2px', fontWeight: 500 }}>
                   {running
