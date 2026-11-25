@@ -47,6 +47,7 @@ import {
   bumpGeminiUsage,
 } from '../src/storage'
 import { getImage, pruneImages } from '../src/images'
+import { phoneKey } from '../src/groupImport'
 import { callGemini } from '../src/geminiApi'
 import { callClaude, type ClaudeSchema } from '../src/claudeApi'
 import { SUGGEST_SCHEMA, SUGGEST_SYSTEM, buildSuggestPrompt, parseSuggestions } from '../src/gemini'
@@ -476,6 +477,7 @@ async function finishCampaignItem(job: ActiveSend, p: SendResult): Promise<numbe
     await appendSendEvent(job.phone, 'campaign')
     void enqueueCrmActivity({ phone: job.phone, contactName: job.contactName, text: job.text, source: 'campaign' })
     if (c.moveToColumnId) await moveCardOfPhone(job.phone, c.moveToColumnId)
+    await tagCardsOfPhone(job.phone, `Recebeu: ${c.name}`)
   }
 
   const settings = await getSettings()
@@ -517,12 +519,26 @@ async function moveCardOfPhone(phone: string, columnId: string) {
   for (const board of await getBoards()) {
     if (!(await getKanbanColumns(board.id)).some(c => c.id === columnId)) continue
     const cards = await getKanbanCards(board.id)
-    const card = cards.find(c => c.phone === phone)
+    // Contatos vindos de grupo podem estar sem o nono dígito.
+    const card = cards.find(c => c.phone && phoneKey(c.phone) === phoneKey(phone))
     if (!card) continue
     if (card.columnId !== columnId) {
       await saveAllKanbanCards(cards.map(c => (c.id === card.id ? applyColumnChange(c, columnId) : c)), board.id)
     }
     return
+  }
+}
+
+/** Marca no Kanban quais campanhas o contato já recebeu. */
+async function tagCardsOfPhone(phone: string, tag: string) {
+  for (const board of await getBoards()) {
+    const cards = await getKanbanCards(board.id)
+    const missing = (c: (typeof cards)[number]) => !!c.phone && phoneKey(c.phone) === phoneKey(phone) && !c.tags.includes(tag)
+    if (!cards.some(missing)) continue
+    await saveAllKanbanCards(
+      cards.map(c => (missing(c) ? { ...c, tags: [...c.tags, tag], updatedAt: Date.now() } : c)),
+      board.id,
+    )
   }
 }
 

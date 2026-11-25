@@ -7,15 +7,15 @@
  */
 
 import type {
-  AppSettings, Campaign, CampaignAudience, KanbanBoard, KanbanCard, KanbanColumn, MessageLink,
+  AppSettings, Campaign, CampaignAudience, CampaignItemStatus, KanbanBoard, KanbanCard, KanbanColumn, MessageLink,
   Recurrence, ScheduledMessage, Task, Template,
 } from './types'
 import { formatPhone, normalizePhone } from './phone'
 import { buildItems, validateCampaign } from './campaign'
-import { renderTemplate } from './templates'
+import { realName, renderTemplate } from './templates'
 import { phoneKey } from './groupImport'
 import { DEFAULT_LINK, describeLink, normalizeLink } from './link'
-import { DEFAULT_COLUMNS } from './storage'
+import { applyColumnChange, DEFAULT_COLUMNS } from './storage'
 
 export interface PlanState {
   boards: KanbanBoard[]
@@ -63,7 +63,12 @@ const RECURRENCE: Record<string, Recurrence> = { nao: 'none', 'não': 'none', di
 
 type Obj = Record<string, unknown>
 
-const key = (s: string) => s.trim().toLowerCase()
+const CAMPAIGN_GROUPS: Record<string, CampaignItemStatus[]> = {
+  enviadas: ['sent'], pendentes: ['pending', 'sending'], falhas: ['failed'], todas: ['sent', 'pending', 'sending', 'failed'],
+}
+
+// Nomes iguais na tela têm de casar: iguala acentos "compostos" e "separados" e os espaços.
+const key = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
 
@@ -206,35 +211,75 @@ export function buildPlan(raw: string, state: PlanState, now = Date.now()): Plan
   }
 
   // ── Contatos ────────────────────────────────────────────────────────────────
-  for (const [i, c] of list('contatos').entries()) {
-    const who = text(c.nome)
-    const where = `Contato ${i + 1}${who ? ` (${who})` : ''}`
-    const phone = normalizePhone(text(c.telefone))
-    if (!phone) { errors.push(`${where}: telefone inválido. Use DDD + número.`); continue }
-    const board = boardFor(c.quadro, where)
-    if (!board) continue
-    const column = text(c.etapa)
-      ? columnFor(board, c.etapa, where)
-      : [...(columns[board.id] ?? [])].sort((a, b) => a.order - b.order)[0]
-    if (!column) continue
-    const tags = Array.isArray(c.tags) ? c.tags.map(text).filter(Boolean) : []
+  /**
+   * Cria o card ou acrescenta tags a quem já está no quadro. Com `move`, quem está em uma etapa
+   * anterior avança até a etapa pedida (nunca volta).
+   */
+  const addContact = (board: KanbanBoard, column: KanbanColumn, phone: string, who: string, tags: string[], move = false) => {
     const current = cards[board.id] ?? []
     const at = current.findIndex(x => x.phone && phoneKey(x.phone) === phoneKey(phone))
     if (at >= 0) {
       const add = tags.filter(t => !current[at].tags.includes(t))
-      if (!add.length) { skipped.push(`${current[at].contactName} já está em "${board.name}".`); continue }
-      cards[board.id] = current.map((x, n) => (n === at ? { ...x, tags: [...x.tags, ...add], updatedAt: now } : x))
-      contactLines.push(`${current[at].contactName}: ganha a(s) tag(s) ${add.join(', ')} (continua onde está)`)
-    } else {
-      cards[board.id] = [...current, {
-        id: newId('card'), contactName: who || formatPhone(phone), phone,
-        columnId: column.id, columnChangedAt: now, columnHistory: [{ columnId: column.id, at: now }],
-        tags, notes: '', lastMessage: '', lastMessageAt: now,
-        order: current.reduce((m, x) => Math.max(m, x.order), -1) + 1, createdAt: now, updatedAt: now,
-      }]
-      contactLines.push(`${who || formatPhone(phone)} → ${board.name} / ${column.title}`)
+      const order = (columns[board.id] ?? []).find(col => col.id === current[at].columnId)?.order ?? -1
+      const advance = move && order < column.order
+      if (!add.length && !advance) return { kind: 'same' as const, name: current[at].contactName, add }
+      cards[board.id] = current.map((x, n) => {
+        if (n !== at) return x
+        const tagged = { ...x, tags: [...x.tags, ...add], updatedAt: now }
+        return advance ? applyColumnChange(tagged, column.id, now) : tagged
+      })
+      changedCards.add(board.id)
+      return { kind: advance ? 'moved' as const : 'tagged' as const, name: current[at].contactName, add }
     }
+    cards[board.id] = [...current, {
+      id: newId('card'), contactName: who || formatPhone(phone), phone,
+      columnId: column.id, columnChangedAt: now, columnHistory: [{ columnId: column.id, at: now }],
+      tags, notes: '', lastMessage: '', lastMessageAt: now,
+      order: current.reduce((m, x) => Math.max(m, x.order), -1) + 1, createdAt: now, updatedAt: now,
+    }]
     changedCards.add(board.id)
+    return { kind: 'new' as const, name: who || formatPhone(phone), add: tags }
+  }
+
+  for (const [i, c] of list('contatos').entries()) {
+    const who = text(c.nome)
+    const source = text(c.daCampanha)
+    const where = source ? `Contatos da campanha "${source}"` : `Contato ${i + 1}${who ? ` (${who})` : ''}`
+    const phone = source ? null : normalizePhone(text(c.telefone))
+    if (!source && !phone) { errors.push(`${where}: telefone inválido. Use DDD + número.`); continue }
+    const board = boardFor(c.quadro, where)
+    if (!board) continue
+    const column = text(c.etapa)
+      ? columnFor(board, c.etapa, where)
+      : [...(columns[board.id] ?? [])].sort((x, y) => x.order - y.order)[0]
+    if (!column) continue
+    const tags = Array.isArray(c.tags) ? c.tags.map(text).filter(Boolean) : []
+    const move = c.mover === true
+
+    if (source) {
+      // Os telefones ficam na própria extensão: o código só diz de qual campanha e qual grupo.
+      const campaign = state.campaigns.find(x => key(x.name) === key(source))
+      if (!campaign) { errors.push(`${where}: não existe campanha com esse nome.`); continue }
+      const which = key(text(c.situacao) || 'enviadas')
+      const statuses = CAMPAIGN_GROUPS[which]
+      if (!statuses) { errors.push(`${where}: "situacao" deve ser enviadas, pendentes, falhas ou todas.`); continue }
+      const done = { new: 0, moved: 0, tagged: 0, same: 0 }
+      for (const item of campaign.items.filter(x => statuses.includes(x.status))) {
+        const p = normalizePhone(`+${item.phone}`)
+        if (p) done[addContact(board, column, p, realName(item.name), tags, move).kind]++
+      }
+      if (done.new) contactLines.push(`${done.new} contato(s) ${which} da campanha "${campaign.name}" → ${board.name} / ${column.title}${tags.length ? ` (tag ${tags.join(', ')})` : ''}`)
+      if (done.tagged) contactLines.push(`${done.tagged} contato(s) da campanha "${campaign.name}" já no quadro ganham a(s) tag(s) ${tags.join(', ')} (continuam onde estão)`)
+      if (done.moved) contactLines.push(`${done.moved} contato(s) da campanha "${campaign.name}" já no quadro avançam para "${column.title}"`)
+      if (!done.new && !done.moved && !done.tagged) skipped.push(`${where} (${which}): nenhum contato novo.`)
+      continue
+    }
+
+    const r = addContact(board, column, phone as string, who, tags, move)
+    if (r.kind === 'same') skipped.push(`${r.name} já está em "${board.name}".`)
+    else if (r.kind === 'moved') contactLines.push(`${r.name}: avança para "${column.title}"`)
+    else if (r.kind === 'tagged') contactLines.push(`${r.name}: ganha a(s) tag(s) ${r.add.join(', ')} (continua onde está)`)
+    else contactLines.push(`${r.name} → ${board.name} / ${column.title}`)
   }
 
   // ── Campanhas (sempre rascunho) ─────────────────────────────────────────────
