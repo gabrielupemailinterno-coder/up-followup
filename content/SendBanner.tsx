@@ -11,6 +11,9 @@ import { formatPhone } from '../src/phone'
 import { C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { Icon } from '../src/icons'
 import { clickSend, ensureText, randomBetween, waitForCompose } from './whatsapp-bridge'
+import { describeLink } from '../src/link'
+import { sendImage, sendLink } from './sendImage'
+import { ImageThumb } from '../src/ImagePicker'
 
 type Phase =
   | { kind: 'loading' }
@@ -41,11 +44,22 @@ export function SendBanner({ job, onFinish }: { job: ActiveSend; onFinish: () =>
 
   async function doSend() {
     setPhase({ kind: 'sending' })
-    const outcome = await clickSend()
+    const outcome = job.imageId ? await sendImage(job) : await clickSend()
     if (outcome.ok) {
-      await report({ ok: true })
-      setPhase({ kind: 'done' })
-      setTimeout(onFinish, 2500)
+      let second: Awaited<ReturnType<typeof sendLink>> = { ok: true }
+      if (job.link) {
+        await new Promise(r => setTimeout(r, randomBetween(2000, 4000)))
+        second = await sendLink(job)
+      }
+      if (second.ok) {
+        await report({ ok: true })
+        setPhase({ kind: 'done' })
+        setTimeout(onFinish, 2500)
+      } else {
+        // A principal saiu: conta como enviada, com o aviso sobre o link.
+        await report({ ok: true, code: second.code, message: second.message })
+        setPhase({ kind: 'error', code: second.code, message: second.message })
+      }
     } else {
       await report({ ok: false, code: outcome.code, message: outcome.message })
       setPhase({ kind: 'error', code: outcome.code, message: outcome.message })
@@ -59,7 +73,8 @@ export function SendBanner({ job, onFinish }: { job: ActiveSend; onFinish: () =>
       const state = await waitForCompose()
       if (!alive) return
       if (state.status === 'ready') {
-        await ensureText(state.el, job.text)
+        // Com imagem, o texto vai como legenda: a caixa de mensagem fica vazia.
+        if (!job.imageId) await ensureText(state.el, job.text)
         if (!alive) return
         setPhase({ kind: 'ready' })
         // Pausa curta e variável antes do envio automático (e para dar chance de cancelar).
@@ -107,6 +122,10 @@ export function SendBanner({ job, onFinish }: { job: ActiveSend; onFinish: () =>
       <div style={{ fontSize: '12.5px', opacity: 0.92, whiteSpace: 'pre-wrap', maxHeight: '96px', overflow: 'auto', margin: '6px 0 12px', background: 'rgba(13,15,12,0.25)', borderRadius: R.sm, padding: '8px 10px', lineHeight: 1.45 }}>
         {job.text}
       </div>
+
+      {job.imageId && <div style={{ marginBottom: '12px' }}><ImageThumb imageId={job.imageId} size={90} /></div>}
+
+      {job.link && <div style={{ fontSize: '11.5px', opacity: 0.85, marginBottom: '10px', wordBreak: 'break-word' }}>{describeLink(job.link)}</div>}
 
       {phase.kind === 'loading' && <div style={{ fontSize: '12.5px', fontWeight: 600 }}>Abrindo a conversa…</div>}
 

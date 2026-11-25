@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import type { Campaign, CampaignAudience, KanbanCard, KanbanColumn } from '../src/types'
+import type { Campaign, CampaignAudience, KanbanCard, KanbanColumn, MessageLink } from '../src/types'
 import { sendToBackground } from '../src/types'
-import { deleteCampaign, getCampaigns, getSettings, saveCampaign } from '../src/storage'
+import { getCampaign, deleteCampaign, getCampaigns, getSettings, saveCampaign } from '../src/storage'
 import { watchStorage } from '../src/storageWatch'
+import { ImagePicker, ImageThumb } from '../src/ImagePicker'
+import { LinkEditor, LinkFields } from '../src/LinkFields'
+import { describeLink, normalizeLink } from '../src/link'
 import { MIN_VARIANTS, buildItems, campaignProgress, validateCampaign } from '../src/campaign'
 import { extraVariables, renderTemplate } from '../src/templates'
 import { formatPhone } from '../src/phone'
@@ -37,6 +40,12 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
     const r = await promise
     if (!r.ok) toast(r.message ?? 'Não foi possível concluir a ação.', 'err')
     else if (okMessage) toast(okMessage)
+  }
+
+  /** Relê a campanha antes de gravar, para não sobrescrever o progresso dos envios. */
+  async function patchCampaign(id: string, patch: Pick<Partial<Campaign>, 'imageId' | 'link'>) {
+    const current = await getCampaign(id)
+    if (current) await saveCampaign({ ...current, ...patch })
   }
 
   async function start(c: Campaign) {
@@ -117,6 +126,17 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
                 <div style={{ height: '6px', width: `${p.total ? (p.done / p.total) * 100 : 0}%`, background: C.accent, borderRadius: R.pill, transition: 'width .3s' }} />
               </div>
 
+              {c.status !== 'running' && p.pending > 0 && (
+                <div style={{ marginTop: '12px' }}>
+                  <ImagePicker imageId={c.imageId} onChange={id => void patchCampaign(c.id, { imageId: id })} />
+                  <div style={{ marginTop: '10px' }}>
+                    <LinkEditor link={c.link} onSave={next => void patchCampaign(c.id, { link: next })} />
+                  </div>
+                </div>
+              )}
+              {c.status === 'running' && c.link && <div style={{ marginTop: '10px', fontSize: '12px', color: C.muted }}>{describeLink(c.link)}</div>}
+              {c.status === 'running' && c.imageId && <div style={{ marginTop: '12px' }}><ImageThumb imageId={c.imageId} /></div>}
+
               {reportId === c.id && (
                 <div style={{ overflowX: 'auto', marginTop: '14px' }}>
                   <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
@@ -184,6 +204,8 @@ function CampaignForm({
   const [minSec, setMinSec] = useState(20)
   const [maxSec, setMaxSec] = useState(45)
   const [moveTo, setMoveTo] = useState('')
+  const [imageId, setImageId] = useState<string | undefined>(undefined)
+  const [link, setLink] = useState<MessageLink | undefined>(undefined)
   const [floor, setFloor] = useState(15)
   const [errors, setErrors] = useState<string[]>([])
 
@@ -211,6 +233,8 @@ function CampaignForm({
     const draft = { name, variants, vars, minSec, maxSec, items }
     const problems = validateCampaign(draft, floor)
     if (kind !== 'pasted' && !columnId && !tag) problems.unshift('Escolha uma coluna ou tag do Kanban (ou use lista colada).')
+    const checkedLink = link ? normalizeLink(link) : null
+    if (checkedLink && !checkedLink.ok) problems.push(checkedLink.error)
     setErrors(problems)
     if (problems.length > 0) return
     const now = Date.now()
@@ -220,6 +244,8 @@ function CampaignForm({
       audience,
       variants: variants.map(v => v.trim()).filter(Boolean),
       vars,
+      imageId,
+      link: checkedLink?.ok ? checkedLink.link : undefined,
       minSec,
       maxSec,
       moveToColumnId: moveTo || undefined,
@@ -315,6 +341,12 @@ function CampaignForm({
                 <input style={inputStyle} value={vars[v] ?? ''} onChange={e => setVars({ ...vars, [v]: e.target.value })} />
               </label>
             ))}
+            <div style={{ marginTop: '12px' }}>
+              <ImagePicker imageId={imageId} onChange={setImageId} />
+            </div>
+            <div style={{ marginTop: '12px' }}>
+              <LinkFields value={link} onChange={setLink} />
+            </div>
             {preview && (
               <div style={{ marginTop: '12px', background: C.accentSoft, border: `1px solid ${C.accentLine}`, borderRadius: R.md, padding: '10px 12px', fontSize: '12.5px', whiteSpace: 'pre-wrap', color: C.inkSoft }}>
                 <strong style={{ color: C.brand }}>Prévia (1ª variação, 1º contato)</strong>{'\n'}{preview}
@@ -342,7 +374,7 @@ function CampaignForm({
               </label>
             </div>
             <p style={{ margin: '10px 0 0', fontSize: '12px', color: C.muted, lineHeight: 1.5 }}>
-              Cada envio espera um tempo aleatório entre o mínimo e o máximo (piso de {floor}s). Vale o limite diário da conta. A campanha pausa sozinha após falhas seguidas ou aviso de restrição, e você pode pausar ou parar pela barra no WhatsApp Web.
+              Cada envio espera um tempo aleatório entre o mínimo e o máximo (piso de {floor}s). A cada lote de envios há uma pausa maior. A campanha pausa sozinha após falhas seguidas ou aviso de restrição, e você pode pausar ou parar pela barra no WhatsApp Web.
             </p>
           </fieldset>
 

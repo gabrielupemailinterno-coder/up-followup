@@ -26,7 +26,9 @@ import {
   getTasks,
   saveTask,
   deleteTask,
+  getBoards,
   getKanbanCards,
+  getKanbanColumns,
   saveAllKanbanCards,
   applyColumnChange,
   getSendHistory,
@@ -44,6 +46,7 @@ import {
   getGeminiUsage,
   bumpGeminiUsage,
 } from '../src/storage'
+import { getImage, pruneImages } from '../src/images'
 import { callGemini } from '../src/geminiApi'
 import { callClaude, type ClaudeSchema } from '../src/claudeApi'
 import { SUGGEST_SCHEMA, SUGGEST_SYSTEM, buildSuggestPrompt, parseSuggestions } from '../src/gemini'
@@ -60,7 +63,7 @@ const ALARM_PREFIX = 'wm_msg_'
 const NOTIFY_PREFIX = 'wm_notify_'
 const TASK_PREFIX = 'wm_task_'
 const TICK_ALARM = 'wm_tick'
-const ACTIVE_SEND_TTL_MS = 3 * 60 * 1000
+const ACTIVE_SEND_TTL_MS = 5 * 60 * 1000
 const AUTO_TOLERANCE_MS = 5 * 60 * 1000   // além disso o agendamento vira "vencido" e espera decisão
 
 // ─── Install / Startup ────────────────────────────────────────────────────────
@@ -159,6 +162,7 @@ async function resyncAlarms() {
   )
   for (const msg of await getScheduledMessages()) await scheduleAlarm(msg)
   for (const task of await getTasks()) scheduleTaskAlarm(task)
+  await pruneImages()
 }
 
 chrome.alarms.onAlarm.addListener(async alarm => {
@@ -274,6 +278,8 @@ async function requestSend(id: string): Promise<Reply> {
     return fail('MISSING_VARS', `Variáveis sem valor: ${missing.map(v => `{${v}}`).join(', ')}.`)
   }
 
+  if (msg.imageId && !await getImage(msg.imageId)) return fail('NO_IMAGE', 'A imagem anexada não foi encontrada. Agende de novo.')
+
   if (await getFreshActiveSend()) return fail('BUSY', 'Há outro envio em andamento. Tentando de novo em instantes.')
 
   const [settings, log] = await Promise.all([getSettings(), getTodayLog()])
@@ -284,10 +290,10 @@ async function requestSend(id: string): Promise<Reply> {
 
   await setActiveSend({
     id: msg.id, phone: msg.phone, contactName: msg.contactName, text,
-    startedAt: Date.now(), auto: msg.autoSend, source: 'schedule',
+    startedAt: Date.now(), auto: msg.autoSend, source: 'schedule', imageId: msg.imageId, link: msg.link,
   })
   await patchScheduledMessage(msg.id, { attempts: msg.attempts + 1 })
-  await openWhatsApp(`https://web.whatsapp.com/send?phone=${msg.phone}&text=${encodeURIComponent(text)}`, msg.autoSend)
+  await openWhatsApp(chatUrl(msg.phone, text, msg.imageId), msg.autoSend)
   return { ok: true }
 }
 
@@ -295,6 +301,12 @@ async function requestSend(id: string): Promise<Reply> {
  * Abre/navega a aba do WhatsApp Web. Envios automáticos não roubam o foco
  * (não interrompem o que você está fazendo); com confirmação manual a aba vem para a frente.
  */
+/** Com imagem, o texto não vai na caixa de mensagem: ele é enviado como legenda. */
+function chatUrl(phone: string, text: string, imageId?: string): string {
+  const base = `https://web.whatsapp.com/send?phone=${phone}`
+  return imageId ? base : `${base}&text=${encodeURIComponent(text)}`
+}
+
 async function openWhatsApp(url: string, background = false) {
   const tabs = await chrome.tabs.query({ url: 'https://web.whatsapp.com/*' })
   const tab = tabs[0]
@@ -332,12 +344,14 @@ async function finishSend(job: ActiveSend, p: SendResult): Promise<number | unde
   if (!msg) return undefined
 
   if (p.ok) {
-    await patchScheduledMessage(msg.id, { status: 'sent', failReason: undefined })
+    // Com p.ok, uma mensagem de aviso significa que só o link (segunda mensagem) não saiu.
+    await patchScheduledMessage(msg.id, { status: 'sent', failReason: p.message })
     await registerSend()
     await appendSendEvent(msg.phone, 'schedule')
     void enqueueCrmActivity({ phone: msg.phone, contactName: msg.contactName, text: job.text, source: 'schedule' })
     await scheduleNextOccurrence(msg)
-    notify(`sent_${msg.id}`, 'WhatsApp Web Mod ✅', `Mensagem enviada para "${msg.contactName}".`)
+    notify(`sent_${msg.id}`, p.message ? 'WhatsApp Web Mod ⚠️' : 'WhatsApp Web Mod ✅',
+      p.message ? `${msg.contactName}: ${p.message}` : `Mensagem enviada para "${msg.contactName}".`)
   } else if (p.code === 'CANCELLED') {
     // Usuário desistiu na hora: continua pendente.
   } else {
@@ -409,6 +423,11 @@ async function advanceCampaign(id: string): Promise<Reply> {
     return { ok: true }
   }
 
+  if (c.imageId && !await getImage(c.imageId)) {
+    await saveCampaign({ ...c, status: 'paused', pauseReason: 'A imagem anexada não foi encontrada. Anexe de novo e clique em Retomar.' })
+    return { ok: true }
+  }
+
   const item = c.items[idx]
   const variantIdx = pickVariantIndex(c.variants.length)
   const { text, missing } = renderTemplate(c.variants[variantIdx], { contactName: item.name, vars: c.vars })
@@ -423,9 +442,9 @@ async function advanceCampaign(id: string): Promise<Reply> {
   await saveCampaign({ ...c, items, pauseReason: undefined })
   await setActiveSend({
     id: `${c.id}#${idx}`, phone: item.phone, contactName: item.name, text,
-    startedAt: Date.now(), auto: true, source: 'campaign', campaignId: c.id,
+    startedAt: Date.now(), auto: true, source: 'campaign', campaignId: c.id, imageId: c.imageId, link: c.link,
   })
-  await openWhatsApp(`https://web.whatsapp.com/send?phone=${item.phone}&text=${encodeURIComponent(text)}`, true)
+  await openWhatsApp(chatUrl(item.phone, text, c.imageId), true)
   return { ok: true }
 }
 
@@ -448,7 +467,7 @@ async function finishCampaignItem(job: ActiveSend, p: SendResult): Promise<numbe
   const items = c.items.map((it, i) => {
     if (i !== idx) return it
     return p.ok
-      ? { ...it, status: 'sent' as const, sentAt: Date.now(), error: undefined }
+      ? { ...it, status: 'sent' as const, sentAt: Date.now(), error: p.message }
       : { ...it, status: 'failed' as const, error: p.message ?? p.code ?? 'Falha no envio' }
   })
 
@@ -460,7 +479,8 @@ async function finishCampaignItem(job: ActiveSend, p: SendResult): Promise<numbe
   }
 
   const settings = await getSettings()
-  const consecutiveFailures = p.ok ? 0 : c.consecutiveFailures + 1
+  // Link que não saiu também conta como falha, para a campanha pausar e o problema aparecer.
+  const consecutiveFailures = p.ok && !p.message ? 0 : c.consecutiveFailures + 1
   let status: Campaign['status'] = c.status
   let pauseReason: string | undefined = c.pauseReason
 
@@ -492,10 +512,18 @@ async function finishCampaignItem(job: ActiveSend, p: SendResult): Promise<numbe
 }
 
 async function moveCardOfPhone(phone: string, columnId: string) {
-  const cards = await getKanbanCards()
-  const card = cards.find(c => c.phone === phone)
-  if (!card || card.columnId === columnId) return
-  await saveAllKanbanCards(cards.map(c => (c.id === card.id ? applyColumnChange(c, columnId) : c)))
+  // A etapa de destino pode ser de qualquer quadro, e quadros diferentes podem repetir o id
+  // (as etapas padrão): vale o quadro que tem a etapa E o contato.
+  for (const board of await getBoards()) {
+    if (!(await getKanbanColumns(board.id)).some(c => c.id === columnId)) continue
+    const cards = await getKanbanCards(board.id)
+    const card = cards.find(c => c.phone === phone)
+    if (!card) continue
+    if (card.columnId !== columnId) {
+      await saveAllKanbanCards(cards.map(c => (c.id === card.id ? applyColumnChange(c, columnId) : c)), board.id)
+    }
+    return
+  }
 }
 
 /** Rede de segurança: o content script normalmente avança no timer; aqui cobre aba fechada/timer atrasado. */

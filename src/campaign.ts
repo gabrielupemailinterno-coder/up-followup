@@ -1,6 +1,6 @@
 import type { Campaign, CampaignAudience, CampaignItem, KanbanCard } from './types'
 import { formatPhone, normalizePhone } from './phone'
-import { extractVariables, extraVariables } from './templates'
+import { extractVariables, extraVariables, realName } from './templates'
 
 export const MIN_VARIANTS = 5
 
@@ -118,7 +118,7 @@ export function validateCampaign(draft: CampaignDraft, floorSec: number): string
 
   const usesName = filled.some(v => /\{(nome|primeiro_nome)\}/.test(v))
   if (usesName) {
-    const nameless = draft.items.filter(i => !i.name.trim()).length
+    const nameless = draft.items.filter(i => !realName(i.name)).length
     if (nameless > 0) errors.push(`${nameless} contato(s) sem nome, mas as mensagens usam {nome}/{primeiro_nome}.`)
   }
 

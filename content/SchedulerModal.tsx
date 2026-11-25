@@ -3,12 +3,15 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Recurrence, ScheduledMessage, Template } from '../src/types'
+import type { MessageLink, Recurrence, ScheduledMessage, Template } from '../src/types'
 import { sendToBackground } from '../src/types'
 import { getTemplates, getTodayLog } from '../src/storage'
 import { formatPhone, normalizePhone } from '../src/phone'
 import { extraVariables, renderTemplate } from '../src/templates'
 import { C, R } from '../src/theme'
+import { ImagePicker, ImageThumb } from '../src/ImagePicker'
+import { LinkFields } from '../src/LinkFields'
+import { normalizeLink } from '../src/link'
 import {
   overlayStyle, modalStyle, labelStyle, inputStyle, primaryBtn, errorStyle, toLocalInput, quickTimes, okStyle,
 } from '../src/ui'
@@ -61,6 +64,8 @@ export function SchedulerModal({ contact, onClose }: Props) {
     })()
   }, [])
 
+  const [imageId, setImageId] = useState<string | undefined>(undefined)
+  const [link, setLink] = useState<MessageLink | undefined>(undefined)
   const phone = normalizePhone(phoneRaw)
   const detection = usePhoneDetection(contact, p => setPhoneRaw(cur => (cur.trim() ? cur : formatPhone(p))))
   const extras = useMemo(() => extraVariables(message), [message])
@@ -88,6 +93,9 @@ export function SchedulerModal({ contact, onClose }: Props) {
       return setError('Escolha uma data e hora no futuro.')
     }
 
+    const checkedLink = link ? normalizeLink(link) : null
+    if (checkedLink && !checkedLink.ok) return setError(checkedLink.error)
+
     setSaving(true)
     const now = Date.now()
     const msg: ScheduledMessage = {
@@ -97,6 +105,8 @@ export function SchedulerModal({ contact, onClose }: Props) {
       message: message.trim(),
       vars,
       templateId,
+      imageId,
+      link: checkedLink?.ok ? checkedLink.link : undefined,
       autoSend,
       scheduledAt,
       recurrence,
@@ -156,6 +166,10 @@ export function SchedulerModal({ contact, onClose }: Props) {
             />
           </label>
 
+          <ImagePicker imageId={imageId} onChange={setImageId} />
+
+          <LinkFields value={link} onChange={setLink} />
+
           {extras.map(v => (
             <label key={v} style={labelStyle}>
               {`{${v}}`}
@@ -171,6 +185,7 @@ export function SchedulerModal({ contact, onClose }: Props) {
           {message.trim() && (
             <div style={{ background: C.accentSoft, border: `1px solid ${C.accentLine}`, borderRadius: R.md, padding: '10px 12px' }}>
               <div style={{ fontSize: '10.5px', color: C.brand, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '3px' }}>Prévia</div>
+              {imageId && <div style={{ marginBottom: '8px' }}><ImageThumb imageId={imageId} size={120} /></div>}
               <div style={{ fontSize: '13px', color: C.inkSoft, whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{preview.text}</div>
             </div>
           )}

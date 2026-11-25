@@ -21,7 +21,10 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import type { KanbanCard, KanbanColumn, KanbanBoard } from '../src/types'
 import { sendToBackground } from '../src/types'
+import { watchStorage } from '../src/storageWatch'
 import {
+  boardStorageKeys,
+  STORAGE_KEYS,
   ensureSchema,
   getKanbanCards,
   getKanbanColumns,
@@ -49,16 +52,17 @@ import { SettingsModal } from './SettingsModal'
 import { ColumnEditor, type ColumnEdit } from './ColumnEditor'
 import { CampaignsPanel } from './CampaignsPanel'
 import { MetricsPanel } from './MetricsPanel'
+import { PlanPanel } from './PlanPanel'
 import { parseXlsx, mergeImportedLeads } from '../src/xlsxImport'
 
-type View = 'board' | 'campaigns' | 'metrics'
+type View = 'board' | 'campaigns' | 'metrics' | 'claude'
 
 const DAY = 86_400_000
 const logo = (f: string) => chrome.runtime.getURL(`brand/${f}`)
 
 function initialView(): View {
   const h = window.location.hash
-  return h === '#campanhas' ? 'campaigns' : h === '#metricas' ? 'metrics' : 'board'
+  return h === '#campanhas' ? 'campaigns' : h === '#metricas' ? 'metrics' : h === '#claude' ? 'claude' : 'board'
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
@@ -88,13 +92,12 @@ export default function KanbanApp() {
 
   const load = useCallback(async (boardId?: string) => {
     await ensureSchema()
-    const [bds, savedBoardId, cols, cds] = await Promise.all([
+    const bid = boardId ?? await getActiveBoardId()
+    const [bds, cols, cds] = await Promise.all([
       getBoards(),
-      getActiveBoardId(),
-      getKanbanColumns(boardId),
-      getKanbanCards(boardId),
+      getKanbanColumns(bid),
+      getKanbanCards(bid),
     ])
-    const bid = boardId ?? savedBoardId
     setBoards(bds)
     setActiveBoardIdState(bid)
     setColumns([...cols].sort((a, b) => a.order - b.order))
@@ -103,6 +106,13 @@ export default function KanbanApp() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  // Contatos salvos pelo WhatsApp com o Kanban aberto aparecem na hora (e não são sobrescritos).
+  useEffect(
+    () => watchStorage(boardStorageKeys(activeBoardId), () => { void load(activeBoardId) }, 300),
+    [activeBoardId, load],
+  )
+  useEffect(() => watchStorage([STORAGE_KEYS.ACTIVE_BOARD], () => { void load() }, 300), [load])
 
   async function switchBoard(boardId: string) {
     setLoading(true)
@@ -372,6 +382,7 @@ export default function KanbanApp() {
           <Tab active={view === 'board'} icon="kanban" onClick={() => setView('board')}>Kanban</Tab>
           <Tab active={view === 'campaigns'} icon="megaphone" onClick={() => setView('campaigns')}>Campanhas</Tab>
           <Tab active={view === 'metrics'} icon="chart" onClick={() => setView('metrics')}>Métricas</Tab>
+          <Tab active={view === 'claude'} icon="bot" onClick={() => setView('claude')}>Claude</Tab>
         </nav>
 
         <div style={{ flex: 1 }} />
@@ -409,6 +420,7 @@ export default function KanbanApp() {
 
       {view === 'campaigns' && <CampaignsPanel columns={columns} cards={cards} />}
       {view === 'metrics' && <MetricsPanel columns={columns} cards={cards} />}
+      {view === 'claude' && <PlanPanel />}
 
       {view === 'board' && (
         <>

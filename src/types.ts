@@ -5,6 +5,14 @@ export const SCHEMA_VERSION = 3
 export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly'
 export type ScheduleStatus = 'pending' | 'sent' | 'failed' | 'skipped'
 
+/** Link enviado em uma segunda mensagem. */
+export interface MessageLink {
+  url: string
+  text: string                     // texto da segunda mensagem
+  style: 'button' | 'card'         // botão (experimental) ou cartão com prévia
+  label: string                    // nome do botão
+}
+
 export interface ScheduledMessage {
   id: string
   contactName: string
@@ -12,6 +20,8 @@ export interface ScheduledMessage {
   message: string          // texto bruto, com variáveis {nome}, {data}…
   vars: Record<string, string>   // valores das variáveis extras
   templateId?: string
+  imageId?: string         // imagem anexada: a mensagem vira legenda
+  link?: MessageLink       // link em mensagem separada
   autoSend: boolean        // true = envia sozinho; false = pede confirmação no banner
   scheduledAt: number      // Unix timestamp (ms)
   recurrence: Recurrence
@@ -137,6 +147,8 @@ export interface ActiveSend {
   auto: boolean                 // true = envia sem pedir clique
   source: 'schedule' | 'campaign'
   campaignId?: string
+  imageId?: string
+  link?: MessageLink
 }
 
 // ─── Campanhas ────────────────────────────────────────────────────────────────
@@ -164,6 +176,8 @@ export interface Campaign {
   audience: CampaignAudience
   variants: string[]            // mínimo 5
   vars: Record<string, string>  // valores das variáveis extras (iguais p/ todos)
+  imageId?: string              // imagem enviada para todos, com a variação como legenda
+  link?: MessageLink            // link em mensagem separada, igual para todos
   minSec: number
   maxSec: number
   moveToColumnId?: string
@@ -263,6 +277,15 @@ export interface BackupFile {
   campaigns?: Campaign[]
   tasks?: Task[]
   history?: SendEvent[]
+  images?: Record<string, { dataUrl: string; name: string; createdAt: number }>
+}
+
+/** Código gerado pelo Claude e aplicado na aba Claude do Kanban. */
+export interface AppliedPlan {
+  id: string
+  name: string
+  appliedAt: number
+  summary: string[]
 }
 
 // ─── Mensageria ───────────────────────────────────────────────────────────────

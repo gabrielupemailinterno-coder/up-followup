@@ -15,6 +15,7 @@ import { BASE_CSS, C, FONT, R, SHADOW, brandUrl } from '../src/theme'
 import { Icon, type IconName } from '../src/icons'
 import { SchedulerModal } from './SchedulerModal'
 import { QuickAddModal } from './QuickAddModal'
+import { GroupImportModal } from './GroupImportModal'
 import { SendBanner } from './SendBanner'
 import { ContactPanel } from './ContactPanel'
 import { QuickReplies } from './QuickReplies'
@@ -36,7 +37,7 @@ export const FloatingButton = {
   },
 }
 
-type Modal = 'scheduler' | 'quickadd' | null
+type Modal = 'scheduler' | 'quickadd' | 'group' | null
 
 const DOCK_KEY = 'wm_dock_open'
 
@@ -115,8 +116,10 @@ function FloatingApp() {
     { icon: 'user', label: 'Painel do contato', hint: noChat ? 'Abra uma conversa primeiro' : 'Etapa, tags, notas e tarefas', run: () => setPanelOpen(!panelOpen), active: panelOpen, disabled: noChat && !panelOpen },
     { icon: 'calendar', label: 'Agendar follow-up', hint: noChat ? 'Abra uma conversa ou digite o número' : `Para ${contact?.name ?? 'esta conversa'}`, run: () => setModal('scheduler') },
     { icon: 'userPlus', label: 'Salvar no Kanban', hint: noChat ? 'Abra uma conversa primeiro' : 'Adicione esta conversa', run: () => setModal('quickadd'), disabled: noChat },
+    { icon: 'download', label: 'Puxar contatos do grupo', hint: noChat ? 'Abra um grupo primeiro' : 'Salva os membros no Kanban', run: () => setModal('group'), disabled: noChat },
     { icon: 'kanban', label: 'Abrir Kanban', hint: 'Seu funil de leads', run: () => void sendToBackground({ type: 'OPEN_KANBAN' }) },
     { icon: 'megaphone', label: 'Campanhas', hint: 'Disparo com variações', run: () => void sendToBackground({ type: 'OPEN_KANBAN', payload: { hash: 'campanhas' } }) },
+    { icon: 'bot', label: 'Claude', hint: 'Colar código e enviar relatório', run: () => void sendToBackground({ type: 'OPEN_KANBAN', payload: { hash: 'claude' } }) },
     { icon: 'book', label: 'Manual de uso', hint: 'Passo a passo do time', run: () => void sendToBackground({ type: 'OPEN_MANUAL' }) },
   ]
 
@@ -124,7 +127,7 @@ function FloatingApp() {
     <>
       <div
         style={{
-          position: 'fixed', right: panelOpen ? '320px' : 0, top: '36%', zIndex: 99999,
+          position: 'fixed', right: panelOpen ? '320px' : 0, top: '22%', zIndex: 99999,
           display: 'flex', alignItems: 'flex-start', gap: '8px', fontFamily: FONT,
         }}
       >
@@ -194,6 +197,7 @@ function FloatingApp() {
 
       {modal === 'scheduler' && <SchedulerModal contact={contact} onClose={() => setModal(null)} />}
       {modal === 'quickadd' && <QuickAddModal contact={contact} onClose={() => setModal(null)} />}
+      {modal === 'group' && <GroupImportModal onClose={() => setModal(null)} />}
       {job && <SendBanner job={job} onFinish={() => setJob(null)} />}
       <QuickReplies getContact={() => contactRef.current} />
       <CampaignBar />

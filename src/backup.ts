@@ -7,17 +7,23 @@ import {
   getCampaigns, getTasks, getSendHistory, saveAllCampaigns, saveAllTasks, saveAllSendHistory,
 } from './storage'
 import { DEFAULT_SETTINGS } from './storage'
+import { getImage, putImage, usedImageIds } from './images'
 
 export async function buildBackup(): Promise<BackupFile> {
   const [columns, cards, schedules, templates, settings, campaigns, tasks, history] = await Promise.all([
     getKanbanColumns(), getKanbanCards(), getScheduledMessages(), getTemplates(), getSettings(),
     getCampaigns(), getTasks(), getSendHistory(),
   ])
+  const images: NonNullable<BackupFile['images']> = {}
+  for (const id of await usedImageIds()) {
+    const image = await getImage(id)
+    if (image) images[id] = image
+  }
   return {
     app: 'whatsapp-web-mod',
     schemaVersion: SCHEMA_VERSION,
     exportedAt: Date.now(),
-    columns, cards, schedules, templates, settings, campaigns, tasks, history,
+    columns, cards, schedules, templates, settings, campaigns, tasks, history, images,
   }
 }
 
@@ -35,6 +41,7 @@ export async function restoreBackup(raw: unknown): Promise<void> {
   const orphan = (b.cards as KanbanCard[]).find(c => !columnIds.has(c.columnId))
   if (orphan) throw new Error(`Card "${orphan.contactName}" aponta para uma coluna que não existe no backup.`)
 
+  for (const [id, image] of Object.entries(b.images ?? {})) await putImage(id, image)
   await saveKanbanColumns(b.columns)
   await saveAllKanbanCards(migrateCards(b.cards))
   await saveAllScheduledMessages(migrateSchedules(b.schedules))

@@ -1,6 +1,6 @@
 import type {
   ScheduledMessage, KanbanCard, KanbanColumn, KanbanBoard, AppSettings, Template, SendLog, ActiveSend,
-  Campaign, Task, SendEvent, SendSource, CrmLead, CrmJob, CrmDiag,
+  Campaign, Task, SendEvent, SendSource, CrmLead, CrmJob, CrmDiag, AppliedPlan,
 } from './types'
 import { SCHEMA_VERSION } from './types'
 import { DEFAULT_TEMPLATES } from './templates'
@@ -64,6 +64,7 @@ const KEYS = {
   CRM_STAGES: 'wm_crm_stages',
   BOARDS: 'wm_boards',
   ACTIVE_BOARD: 'wm_active_board',
+  APPLIED_PLANS: 'wm_applied_plans',
 }
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
@@ -176,6 +177,11 @@ function cardsKey(boardId: string): string {
 }
 function colsKey(boardId: string): string {
   return boardId === DEFAULT_BOARD_ID ? KEYS.KANBAN_COLUMNS : `wm_cols_${boardId}`
+}
+
+/** Chaves de um quadro, para quem precisa observar mudanças. */
+export function boardStorageKeys(boardId: string): string[] {
+  return [cardsKey(boardId), colsKey(boardId), KEYS.BOARDS]
 }
 
 export async function getBoards(): Promise<KanbanBoard[]> {
@@ -507,6 +513,16 @@ export async function getCrmStages(): Promise<string[]> {
 
 export async function setCrmStages(list: string[]): Promise<void> {
   await set(KEYS.CRM_STAGES, list)
+}
+
+// ─── Códigos do Claude já aplicados ───────────────────────────────────────────
+
+export async function getAppliedPlans(): Promise<AppliedPlan[]> {
+  return get<AppliedPlan[]>(KEYS.APPLIED_PLANS, [])
+}
+
+export async function addAppliedPlan(plan: AppliedPlan): Promise<void> {
+  await set(KEYS.APPLIED_PLANS, [...await getAppliedPlans(), plan].slice(-100))
 }
 
 export const STORAGE_KEYS = KEYS

@@ -238,6 +238,7 @@
             <tr><td><strong>Painel do contato</strong></td><td>Abre um painel lateral com a etapa, tags, notas, follow-ups e tarefas da conversa aberta.</td></tr>
             <tr><td><strong>Agendar follow-up</strong></td><td>Programa uma mensagem para esta conversa (ou para qualquer número).</td></tr>
             <tr><td><strong>Salvar no Kanban</strong></td><td>Cria um card com o contato da conversa aberta.</td></tr>
+            <tr><td><strong>Puxar contatos do grupo</strong></td><td>Salva os membros do grupo aberto em uma lista do Kanban.</td></tr>
             <tr><td><strong>Abrir Kanban</strong></td><td>Abre o funil de leads em uma nova aba.</td></tr>
             <tr><td><strong>Campanhas</strong></td><td>Abre a área de campanhas no Kanban.</td></tr>
             <tr><td><strong>Manual de uso</strong></td><td>Abre este manual.</td></tr>
@@ -253,6 +254,14 @@
           <li>Escolha a etapa e clique em <strong>Salvar contato</strong>.</li>
         </ol>
         <div class="callout info"><div><b class="h">Por que o telefone?</b><p>Todo o sistema identifica o lead pelo <strong>telefone</strong>, nunca pelo nome. Isso evita enviar mensagem para a pessoa errada quando há nomes iguais. Cada telefone só pode existir uma vez no Kanban.</p></div></div>
+
+        <h3 id="grupo">Puxar contatos de um grupo</h3>
+        <ol>
+          <li>No WhatsApp Web, abra o grupo.</li>
+          <li>Menu UP &gt; <strong>Puxar contatos do grupo</strong>.</li>
+          <li>Escolha o quadro (ou <em>Criar quadro novo</em>) e a lista (ou crie uma lista nova com o nome do grupo) e confirme.</li>
+        </ol>
+        <p>Cada contato ganha uma tag com o nome do grupo. Quem já estava no quadro continua onde estava. Alguns grupos escondem o número de parte dos membros: esses não podem ser salvos. Contato sem nome fica com o número, e campanhas para ele não podem usar {nome}. Mensagem em massa para quem não pediu contato aumenta o risco de bloqueio da conta.</p>
 
         <h3 id="agendar">Agendar follow-up</h3>
         <p>Menu UP &gt; <strong>Agendar follow-up</strong>. Preencha:</p>
@@ -283,6 +292,12 @@
         </div>
 
         <div class="callout warn"><div><b class="h">E se o computador estava desligado?</b><p>Nada é enviado atrasado sozinho. Se o horário passar de mais de 5 minutos sem o envio, o item vira <span class="chip danger">Vencido</span> e aparece no ícone UP para você escolher: <strong>Enviar</strong>, <strong>Reagendar</strong> ou <strong>Pular</strong>.</p></div></div>
+
+        <h3 id="imagem">Mensagem com imagem</h3>
+        <p>Em <strong>Agendar follow-up</strong> e na <strong>Nova campanha</strong>, clique em <strong>Anexar imagem</strong> (JPG, PNG ou WEBP). O texto vai como legenda. Em uma campanha parada ou em rascunho, dá para anexar, trocar ou remover a imagem no próprio card da campanha. A foto é reduzida automaticamente. Se o envio não for confirmado, confira a conversa antes de reenviar.</p>
+
+        <h3 id="link">Link com botão (mensagem separada)</h3>
+        <p>Em <strong>Agendar follow-up</strong>, na <strong>Nova campanha</strong> ou no card de uma campanha parada, clique em <strong>Adicionar link com botão</strong>. Depois da mensagem principal sai uma segunda mensagem, como <strong>botão</strong> ou como <strong>cartão com a prévia do site</strong>. O botão é experimental e pode não aparecer em alguns celulares: teste em outro número antes. Se só o link falhar, a mensagem conta como enviada, com o aviso no relatório da campanha.</p>
 
         <h3 id="painel-contato">Painel do contato</h3>
         <p>Menu UP &gt; <strong>Painel do contato</strong>. Um painel se abre à direita e acompanha a conversa aberta:</p>
@@ -369,6 +384,15 @@
             <tr><td>Você cancelou um envio em andamento</td><td>O contato volta para a fila e a campanha pausa.</td></tr>
           </tbody>
         </table>
+
+        <h3 id="claude">Aba Claude: colar código</h3>
+        <ol>
+          <li>Peça no Claude com <strong>/extensao</strong> e copie o código inteiro.</li>
+          <li>No Kanban, abra a aba <strong>Claude</strong> (ou menu da extensão &gt; Claude), cole e clique em <strong>Conferir</strong>.</li>
+          <li>Leia a prévia e clique em <strong>Aplicar</strong>.</li>
+          <li>Para o Claude ver a situação atual, clique em <strong>Enviar relatório ao Claude</strong>: o arquivo vai para a pasta de downloads do Chrome, sem telefones.</li>
+        </ol>
+        <p>O código só acrescenta: nada que existe é apagado, movido ou renomeado, e colar duas vezes não duplica. Campanhas entram como rascunho. Com qualquer erro, nada é gravado. Códigos podem agendar envio automático: a prévia avisa em destaque.</p>
 
         <h3 id="metricas">Métricas</h3>
         <p>Abra pelo Kanban (aba <strong>Métricas</strong>) ou pelo ícone UP. Você acompanha:</p>

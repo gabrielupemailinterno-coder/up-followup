@@ -6,8 +6,10 @@
  *   página -> extensão: { source: 'wm-page', id, ok, data | error }
  *
  * Segurança: só responde a mensagens da própria janela, só aceita os métodos da lista abaixo
- * (todos de LEITURA) e recusa tudo se o rastreamento do WA-JS não estiver desligado.
- * Não devolve nomes nem conteúdo de mensagens.
+ * e recusa tudo se o rastreamento do WA-JS não estiver desligado. Todos são de LEITURA, menos
+ * sendImage e sendLink, que só enviam para a conversa aberta e se o telefone conferir.
+ * Nunca devolve conteúdo de mensagens. Nomes só saem em getGroupParticipants, quando o usuário
+ * pede para salvar os membros do grupo aberto no Kanban.
  */
 (function () {
   'use strict'
@@ -21,11 +23,15 @@
   var queryCache = {}
   var queryCount = 0
   var lastQueryAt = 0
+  var SEND_MIN_GAP_MS = 5000      // trava contra envios em rajada
+  var lastSendAt = {}
 
   function W() { return window.WPP }
   function safe(fn, fallback) { try { return fn() } catch (e) { return fallback } }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms) }) }
   function digits(s) { return String(s == null ? '' : s).replace(/\D/g, '') }
+  // No Brasil o WhatsApp às vezes omite o nono dígito: compara sem ele.
+  function phoneKey(s) { return digits(s).replace(/^55(\d{2})9?(\d{8})$/, '55$1$2') }
 
   function analyticsOff() {
     var w = W()
@@ -34,6 +40,23 @@
       safe(function () { w.config.disableGoogleAnalytics = true })   // rede de segurança
     }
     return w.config.disableGoogleAnalytics === true
+  }
+
+  /** Id da conversa aberta, só se for a do telefone pedido; trava envios em rajada. */
+  async function chatFor(method, args) {
+    var active = await methods.getActiveChat()
+    if (!active || !active.phone || phoneKey(active.phone) !== phoneKey(args && args.phone)) throw new Error('wrong_chat')
+    var chat = W().chat.getActiveChat()
+    if (Date.now() - (lastSendAt[method] || 0) < SEND_MIN_GAP_MS) throw new Error('send_too_fast')
+    lastSendAt[method] = Date.now()
+    return chat.id._serialized
+  }
+
+  function confirmSent(res) {
+    var result = res && res.sendMsgResult
+    var code = String((result && result.messageSendResult) || result || '')
+    if (!(res && res.ack >= 1) && code !== 'OK') throw new Error('send_failed ' + code)
+    return { sent: true }
   }
 
   var methods = {
@@ -68,6 +91,66 @@
         return out
       }
       return out
+    },
+
+    /** Membros do grupo aberto (nome e telefone). Só lê o que o WhatsApp Web já tem. */
+    getGroupParticipants: async function () {
+      var w = W()
+      var chat = w.chat.getActiveChat()
+      if (!chat || !chat.id || chat.id.server !== 'g.us') throw new Error('not_group')
+      var list = await w.group.getParticipants(chat.id._serialized)
+      var me = digits(safe(function () { return w.conn.getMyUserId().user }, ''))
+      var out = { groupName: String(chat.formattedTitle || chat.name || safe(function () { return chat.groupMetadata.subject }, '') || 'Grupo'), members: [], hidden: 0 }
+
+      function nameOf(c) { return c ? (safe(function () { return c.name || c.pushname || c.verifiedName }, '') || '') : '' }
+
+      for (var i = 0; i < list.length; i++) {
+        var p = list[i]
+        var id = p && p.id
+        if (!id) continue
+        if (safe(function () { return p.contact.isMe }, false)) continue
+        var phone = ''
+        var entry = null
+        if (id.server === 'c.us') phone = digits(id.user)
+        else if (id.server === 'lid') {
+          try { entry = await w.contact.getPnLidEntry(id._serialized) } catch (e) { entry = null }
+          phone = entry && entry.phoneNumber ? digits(entry.phoneNumber.id) : ''
+        }
+        if (!phone) { out.hidden++; continue }
+        if (phone === me) continue
+        var saved = null
+        try { saved = await w.contact.get(phone + '@c.us') } catch (e) { saved = null }
+        var name = nameOf(saved) || nameOf(safe(function () { return p.contact }, null)) || nameOf(entry && entry.contact)
+        out.members.push({ phone: phone, name: String(name) })
+      }
+      return out
+    },
+
+    /** Envia uma imagem com legenda para a conversa aberta, desde que seja a do telefone pedido. */
+    sendImage: async function (args) {
+      var dataUrl = String((args && args.dataUrl) || '')
+      if (!/^data:image\/(jpeg|png);base64,/.test(dataUrl)) throw new Error('invalid_image')
+      var chatId = await chatFor('sendImage', args)
+      return confirmSent(await W().chat.sendFileMessage(chatId, dataUrl, {
+        type: 'image', caption: String(args.caption || ''), filename: 'imagem.jpg', waitForAck: true,
+      }))
+    },
+
+    /** Segunda mensagem com um link: como botão ou com o cartão de prévia do próprio WhatsApp. */
+    sendLink: async function (args) {
+      var url = String((args && args.url) || '')
+      var text = String((args && args.text) || '')
+      var label = String((args && args.label) || '')
+      var button = !!args && args.style === 'button'
+      if (!/^https?:\/\/\S+$/i.test(url) || !text || (button && !label)) throw new Error('invalid_link')
+      var chatId = await chatFor('sendLink', args)
+      return confirmSent(await W().chat.sendTextMessage(
+        chatId,
+        button ? text : text + '\n' + url,
+        button
+          ? { buttons: [{ url: url, text: label }], linkPreview: false, waitForAck: true }
+          : { linkPreview: true, waitForAck: true }
+      ))
     },
 
     /** O número tem WhatsApp? Consulta o servidor, então tem cache, intervalo mínimo e teto. */

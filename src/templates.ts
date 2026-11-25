@@ -1,4 +1,5 @@
 import type { Template } from './types'
+import { phoneFromText } from './phone'
 
 /** Variáveis calculadas automaticamente; as demais são preenchidas pelo usuário. */
 export const BUILTIN_VARS = ['nome', 'primeiro_nome', 'data'] as const
@@ -26,9 +27,16 @@ export interface RenderResult {
   missing: string[]
 }
 
+/** Nome utilizável na mensagem: vazio quando o "nome" é só o número de telefone. */
+export function realName(contactName: string): string {
+  const name = contactName.trim()
+  return phoneFromText(name) ? '' : name
+}
+
 export function renderTemplate(body: string, ctx: RenderContext): RenderResult {
   const now = ctx.now ?? new Date()
-  const name = ctx.contactName.trim()
+  // Contato sem nome fica com o número no card: não pode virar "Oi, +55!".
+  const name = realName(ctx.contactName)
   const values: Record<string, string> = {
     ...ctx.vars,
     nome: name,

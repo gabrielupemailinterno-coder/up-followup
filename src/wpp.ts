@@ -25,7 +25,7 @@ export interface ActiveChatInfo {
 
 let seq = 0
 
-/** Chama um método (da lista curta de leitura) da ponte. Nunca lança: erro e tempo esgotado viram { ok: false }. */
+/** Chama um método (da lista curta) da ponte. Nunca lança: erro e tempo esgotado viram { ok: false }. */
 export function wppCall<T = unknown>(method: string, args?: unknown, timeoutMs = 4000): Promise<WppResult<T>> {
   return new Promise(resolve => {
     const id = `wm_${Date.now()}_${seq++}`
@@ -68,6 +68,18 @@ export function explainWppError(error: string): string {
       return 'Bloqueado por segurança: o rastreamento do WA-JS não está desligado.'
     case 'query_cap_reached':
       return 'Limite de consultas desta sessão atingido. Dê F5 para reiniciar.'
+    case 'wrong_chat':
+      return 'A conversa aberta não é a do contato deste envio.'
+    case 'invalid_image':
+      return 'O arquivo anexado não é uma imagem válida.'
+    case 'send_too_fast':
+      return 'Houve outro envio há poucos segundos. Tente de novo.'
+    case 'invalid_link':
+      return 'O link deste envio está incompleto.'
+    case 'not_group':
+      return 'Abra a conversa de um grupo no WhatsApp e tente de novo.'
+    case 'method_not_allowed':
+      return 'A página está com a versão antiga da extensão. Dê F5 no WhatsApp Web.'
     case 'invalid_phone':
       return 'Telefone inválido para consulta.'
     default:
