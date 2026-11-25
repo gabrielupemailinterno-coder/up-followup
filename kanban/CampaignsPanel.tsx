@@ -15,6 +15,7 @@ import {
 } from '../src/ui'
 import { Icon } from '../src/icons'
 import { useFeedback } from '../src/feedback'
+import { CampaignPreviewModal } from './CampaignPreviewModal'
 
 const STATUS_LABEL: Record<Campaign['status'], { text: string; fg: string; bg: string }> = {
   draft: { text: 'Rascunho', fg: C.muted, bg: '#ECEAE0' },
@@ -29,6 +30,7 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [showForm, setShowForm] = useState(false)
   const [reportId, setReportId] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = () => { void getCampaigns().then(list => setCampaigns([...list].sort((a, b) => b.createdAt - a.createdAt))) }
@@ -47,6 +49,8 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
     const current = await getCampaign(id)
     if (current) await saveCampaign({ ...current, ...patch })
   }
+
+  const previewed = campaigns.find(x => x.id === previewId)
 
   async function start(c: Campaign) {
     const pending = c.items.filter(i => i.status === 'pending').length
@@ -116,6 +120,7 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
                     <Icon name="stop" size={14} /> Parar
                   </button>
                 )}
+                <button style={ghostBtn} onClick={() => setPreviewId(c.id)}><Icon name="eye" size={14} /> Visualizar campanha</button>
                 <button style={ghostBtn} onClick={() => setReportId(reportId === c.id ? null : c.id)}><Icon name="list" size={14} /> Relatório</button>
                 {c.status !== 'running' && (
                   <button style={dangerBtn} onClick={() => remove(c)} aria-label={`Excluir ${c.name}`} title="Excluir"><Icon name="trash" size={14} /></button>
@@ -163,6 +168,20 @@ export function CampaignsPanel({ columns, cards }: { columns: KanbanColumn[]; ca
           )
         })}
       </div>
+
+      {previewed && (
+        <CampaignPreviewModal
+          campaign={previewed}
+          onClose={() => setPreviewId(null)}
+          onStart={
+            previewed.status === 'draft'
+              ? () => { setPreviewId(null); void start(previewed) }
+              : previewed.status === 'paused' || previewed.status === 'stopped'
+                ? () => { setPreviewId(null); void act(sendToBackground({ type: 'CAMPAIGN_RESUME', payload: { id: previewed.id } })) }
+                : undefined
+          }
+        />
+      )}
 
       {showForm && (
         <CampaignForm

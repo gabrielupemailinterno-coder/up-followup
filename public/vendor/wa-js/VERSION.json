@@ -1,11 +1,11 @@
 {
   "name": "@wppconnect/wa-js",
-  "tag": "v4.7.2",
+  "tag": "v4.8.2",
   "asset": "wppconnect-wa.js",
-  "source": "https://github.com/wppconnect-team/wa-js/releases/tag/v4.7.2",
-  "sha256": "97aca719c9ef8e618e7941425920451139def9bd70f5d8449c24864f406dfc85",
+  "source": "https://github.com/wppconnect-team/wa-js/releases/tag/v4.8.2",
+  "sha256": "b1a9c3c42357ad2a9fb7504f460c909dcf0e2b1ad8129abdb485f151164a4b10",
   "githubDigestChecked": true,
-  "retrievedAt": "2026-10-31",
+  "retrievedAt": "2026-11-25",
   "license": "Apache-2.0",
   "audit": {
     "externalHosts": [

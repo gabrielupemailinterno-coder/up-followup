@@ -5,6 +5,7 @@ const PATHS = {
   calendar: '<rect x="3" y="4.5" width="18" height="17" rx="3.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/>',
   kanban: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 7.5v8M12 7.5v11M16 7.5v5"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/>',
+  eye: '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   userPlus: '<circle cx="10" cy="8" r="4"/><path d="M2.5 21c0-4 3.4-6.5 7.5-6.5 1.4 0 2.7.3 3.8.8M19 8.5v6M16 11.5h6"/>',
   send: '<path d="M21.5 2.5L10.5 13.5M21.5 2.5l-6.8 19-4.2-8-8-4.2 19-6.8z"/>',
   megaphone: '<path d="M3 10.5v3a1 1 0 0 0 1 1h2.5l5.5 4v-13l-5.5 4H4a1 1 0 0 0-1 1zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
